@@ -132,6 +132,11 @@ analytics, not forecasting.
 - All 4 pages implemented, each answering one Phase 1 question against `load_orders_full`.
 - Bug found and fixed: `plotly==7.0.0` removed `px.scatter_mapbox` entirely (Mapbox-based traces
   were dropped); the Geo Map page now uses its replacement, `px.scatter_map`.
+- Added a R$/USD currency toggle (`src/currency.py`, sidebar on Home, Sales Overview, and Geo
+  Map) using one **fixed** approximate rate (3.5 BRL per USD — the rough average of 2016 (3.48),
+  2017 (3.19), and 2018 (3.67) per exchange-rates.org). This is a simplification: it does not
+  reflect day-to-day FX movement, only a rough R$-to-$ scale for display. A historically accurate
+  conversion would need a daily rate table joined by `order_purchase_timestamp` instead.
 
 ### Phase 5: Evaluation *(done)*
 Verify the app actually runs, not just that the code looks right, and audit every column of the
@@ -167,6 +172,48 @@ joined table for nulls/outliers introduced by the joins themselves.
 Push the repo to GitHub and connect it to Streamlit Community Cloud. Needs a decision on whether
 `data/*.csv` ships committed in the repo (simplest, works today since every file is under GitHub's
 100 MB limit) or is fetched at runtime from external storage.
+
+## Phase 4 addendum: visualization redesign
+
+The first pass of all four dashboard pages rendered but read as flat - correct
+numbers, no story. Redesigned every chart against a systematic color/form method
+(job-driven color: categorical vs. sequential vs. diverging; direct labels;
+render-and-look QA) rather than default Plotly styling.
+
+**Findings / Result:**
+- Rendered every chart to a static image and actually looked at it (rather than
+  trusting that green tests meant the chart was readable) - this caught 2 real bugs
+  that `AppTest` could never catch, since it only checks "did the script raise":
+  - **The Geo Map was silently centered on Africa.** `px.scatter_map(..., zoom=3)`
+    with no explicit `center` defaults to (0°, 0°) - off the West African coast -
+    not an auto-fit to the data. Fixed with an explicit `center` on Brazil.
+  - **3 zip prefixes (4 orders) are mis-geocoded outside Brazil entirely** - one
+    lands in Portugal (lat/lon ~41, -8.6). Left in, they forced the map to zoom
+    out to fit a stray point on another continent. Filtered to Brazil's real
+    bounding box before plotting.
+- Replaced the Geo Map's `color="state"` (27 categorical hues on an all-pairs
+  map form, which caps at 3 series before colors become indistinguishable) with
+  `color="revenue"` on a single sequential blue ramp - matches the actual job
+  (comparing magnitude, not telling 27 states apart) and reads correctly at any
+  series count. Revenue-per-zip turned out heavily right-skewed (median R$649 vs.
+  a R$109,760 max), so the color domain is capped at the 95th percentile -
+  otherwise a handful of zips wash out the color scale for everyone else.
+- Delivery delay vs. review score is now a **diverging** bar (blue = early, red =
+  late, centered on zero) instead of an uncolored bar - it's a delta-to-baseline
+  job, and the real numbers turned out to be a genuine finding: every score
+  arrives early on average, but the gap widens from -5.9 days (1-star) to -13.4
+  days (5-star) - earlier delivery tracks with happier customers.
+- Review score distribution and the lowest-rated-categories chart both use a
+  fixed red-gray-blue map keyed to the 1-5 score (ordinal, not nominal - order
+  carries meaning) so "bad" and "good" read from color at a glance.
+- Fixed 2 label-clipping / dead-space issues only visible by rendering: long
+  category names were cut off on the left of both horizontal bar charts
+  (`yaxis.automargin`), and the lowest-rated-categories chart spanned 0-5 when
+  every value sits between 3.2-3.9 - all 15 bars looked the same length until
+  the axis was zoomed to the data's actual range.
+- Added direct value labels (selective - only the extremes or top-N, never every
+  bar) and headline stat tiles (peak month, total revenue, avg. order value) so
+  each page leads with a number, not just a chart.
 
 ## Status
 
