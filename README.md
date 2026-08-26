@@ -5,6 +5,10 @@
 ![Pandas](https://img.shields.io/badge/Pandas-2.0+-150458?style=flat-square&logo=pandas&logoColor=white)
 ![Progress](https://img.shields.io/badge/Progress-deployed-brightgreen?style=flat-square)
 
+**Live demo:** [brazilian-e-commerce-f4g54pnlecrcpe78uuhovp.streamlit.app](https://brazilian-e-commerce-f4g54pnlecrcpe78uuhovp.streamlit.app/)
+
+![Dashboard preview](docs/img/dashboard-preview.png)
+
 An interactive Streamlit dashboard built on the Olist public dataset (~99k real orders placed on a
 Brazilian marketplace between 2016-2018). The dashboard joins nine relational CSV files — orders,
 order items, payments, reviews, customers, sellers, products, geolocation, and a category-name
