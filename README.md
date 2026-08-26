@@ -133,18 +133,35 @@ analytics, not forecasting.
 - Bug found and fixed: `plotly==7.0.0` removed `px.scatter_mapbox` entirely (Mapbox-based traces
   were dropped); the Geo Map page now uses its replacement, `px.scatter_map`.
 
-### Phase 5: Evaluation *(in progress)*
-Verify the app actually runs, not just that the code looks right, and audit the joined data for
-issues introduced by the joins themselves.
+### Phase 5: Evaluation *(done)*
+Verify the app actually runs, not just that the code looks right, and audit every column of the
+joined table for nulls/outliers introduced by the joins themselves.
 
 **Findings / Result:**
 - All 5 scripts (`app.py` + 4 pages) verified with `streamlit.testing.v1.AppTest` — each runs
   end-to-end with no uncaught exceptions.
 - Bug found and fixed: `use_container_width=True` is deprecated across all `st.dataframe` /
   `st.plotly_chart` calls; replaced with `width="stretch"` in every page and `app.py`.
-- Confirmed `delivery_days`/`delay_days` nulls (3,229 rows) come from undelivered/cancelled
-  orders, not a join bug.
-- Remaining columns (payments, reviews, products) not yet audited for nulls.
+- Full null audit across the 113,425-row joined table, cross-checked against `order_status`:
+  - `delivery_days`/`delay_days` (2.85%) — almost entirely `shipped`/`canceled`/`unavailable`/
+    `invoiced`/`processing` orders that never got delivered, as expected. Only 11 rows (8
+    `delivered`, 3 `approved`) have a null delivery date despite the status — a known quirk in the
+    raw Olist data, too small to affect any chart.
+  - `product_id`/`price`/`freight_value` (0.68%, 775 rows) — orders with no matching
+    `order_items` row at all (mostly `unavailable`/`canceled`). Correctly excluded from
+    item/category-level charts by the join itself.
+  - `review_score` (0.85%, 961 rows) — orders never reviewed (mostly still `delivered`, just no
+    review submitted). `pandas.mean()`/`value_counts()` already ignore these correctly.
+  - `product_category_name` (610 rows in the raw `olist_products_dataset.csv` itself) — a genuine
+    gap in the source data with no category to recover.
+- Bug found and fixed: 2 category names (`pc_gamer`,
+  `portateis_cozinha_e_preparadores_de_alimentos`) exist in `olist_products_dataset.csv` but have
+  no row in `product_category_name_translation.csv`. Because pandas `groupby` drops `NaN` keys,
+  every category chart was silently dropping that revenue. Fixed in `load_products()` with a
+  `fillna` fallback to the original Portuguese name.
+- Sanity checks all passed: no `price <= 0`, no negative `freight_value`, `review_score` always in
+  `[1, 5]`, zero duplicate `(order_id, order_item_id)` pairs — confirms the join layer isn't
+  fanning out or corrupting rows.
 
 ### Phase 6: Deployment *(planned)*
 Push the repo to GitHub and connect it to Streamlit Community Cloud. Needs a decision on whether
@@ -157,7 +174,8 @@ Push the repo to GitHub and connect it to Streamlit Community Cloud. Needs a dec
 - [x] Phase 2 — Data Understanding (9 files inventoried, 2 data issues found)
 - [x] Phase 3 — Data Preparation (joined table built, 1 bug found and fixed)
 - [x] Phase 4 — Analysis & Dashboard Development (4 pages built, 1 bug found and fixed)
-- [ ] Phase 5 — Evaluation (app verified via `AppTest`; null audit still partial)
+- [x] Phase 5 — Evaluation (app verified via `AppTest`; full null audit done, 1 more bug found
+  and fixed: missing category translations silently dropping revenue from charts)
 - [ ] Phase 6 — Deployment (not yet pushed to Streamlit Community Cloud)
 
 All 5 scripts (`app.py` + 4 pages) run end-to-end with no exceptions, verified via

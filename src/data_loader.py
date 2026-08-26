@@ -55,7 +55,14 @@ def load_sellers() -> pd.DataFrame:
 def load_products() -> pd.DataFrame:
     df = pd.read_csv(DATA_DIR / "olist_products_dataset.csv")
     translation = pd.read_csv(DATA_DIR / "product_category_name_translation.csv")
-    return df.merge(translation, on="product_category_name", how="left")
+    df = df.merge(translation, on="product_category_name", how="left")
+    # A few category names (e.g. "pc_gamer") have no row in the translation file.
+    # Without this, those products' revenue silently disappears from any chart
+    # that groups by the English column (pandas groupby drops NaN keys).
+    df["product_category_name_english"] = df["product_category_name_english"].fillna(
+        df["product_category_name"]
+    )
+    return df
 
 
 @st.cache_data
