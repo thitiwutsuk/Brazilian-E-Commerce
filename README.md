@@ -1,11 +1,10 @@
 # Olist Brazilian E-Commerce Dashboard
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-brazilian--e--commerce--f4g54pnlecrcpe78uuhovp.streamlit.app-06C755?style=flat-square&logo=streamlit&logoColor=white)](https://brazilian-e-commerce-f4g54pnlecrcpe78uuhovp.streamlit.app/)
 ![Python](https://img.shields.io/badge/Python-3.9-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.32+-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)
 ![Pandas](https://img.shields.io/badge/Pandas-2.0+-150458?style=flat-square&logo=pandas&logoColor=white)
 ![Progress](https://img.shields.io/badge/Progress-deployed-brightgreen?style=flat-square)
-
-**Live demo:** [brazilian-e-commerce-f4g54pnlecrcpe78uuhovp.streamlit.app](https://brazilian-e-commerce-f4g54pnlecrcpe78uuhovp.streamlit.app/)
 
 An interactive Streamlit dashboard built on the Olist public dataset (~99k real orders placed on a
 Brazilian marketplace between 2016-2018). The dashboard joins nine relational CSV files — orders,
