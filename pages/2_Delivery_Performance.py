@@ -7,7 +7,7 @@ from src.theme import ACCENT_RED, BRAND_COLOR, NEUTRAL_GREY, configure_page, sty
 configure_page("Delivery Performance", "🚚")
 st.title("🚚 Delivery Performance")
 
-BLUE = BRAND_COLOR
+GREEN = BRAND_COLOR
 RED = ACCENT_RED
 
 df = load_orders_full()
@@ -28,7 +28,7 @@ with col1:
         title="Distribution of delivery time (days)",
         labels={"delivery_days": "Delivery time (days)"},
     )
-    fig_hist.update_traces(marker_color=BLUE)
+    fig_hist.update_traces(marker_color=GREEN)
     fig_hist.add_vline(
         x=mean_days,
         line_color=NEUTRAL_GREY,
@@ -60,7 +60,7 @@ with col2:
         labels={"pct": "Late deliveries (%)", "customer_state": ""},
         text="label",
     )
-    fig_state.update_traces(marker_color=BLUE, textposition="outside")
+    fig_state.update_traces(marker_color=GREEN, textposition="outside")
     st.plotly_chart(style_fig(fig_state), width="stretch")
 
 st.subheader("Delivery delay vs. review score")
@@ -70,7 +70,7 @@ st.caption(
     "gap widens sharply for higher scores: earlier delivery tracks with happier customers."
 )
 by_score = delivered.groupby("review_score", as_index=False)["delay_days"].mean()
-by_score["color"] = by_score["delay_days"].apply(lambda v: RED if v > 0 else BLUE)
+by_score["color"] = by_score["delay_days"].apply(lambda v: RED if v > 0 else GREEN)
 fig_score = px.bar(
     by_score,
     x="review_score",

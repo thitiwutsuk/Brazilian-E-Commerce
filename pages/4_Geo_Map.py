@@ -4,7 +4,7 @@ import streamlit as st
 
 from src.currency import currency_selector
 from src.data_loader import load_geolocation, load_orders_full
-from src.theme import SEQUENTIAL_BLUE, configure_page, style_fig
+from src.theme import SEQUENTIAL_GREEN, configure_page, style_fig
 
 configure_page("Geo Map", "🗺️")
 st.title("🗺️ Customer & Revenue Map")
@@ -47,7 +47,7 @@ fig = px.scatter_map(
     lon="geolocation_lng",
     size="orders",
     color="revenue",
-    color_continuous_scale=SEQUENTIAL_BLUE,
+    color_continuous_scale=SEQUENTIAL_GREEN,
     # Revenue-per-zip is heavily right-skewed (median R$649 vs. max R$109,760 -
     # a single dense SP zip). A linear scale to the max would render everything
     # outside that handful of zips as near-white. Cap the color domain at the

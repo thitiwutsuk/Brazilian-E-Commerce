@@ -8,7 +8,7 @@ from src.theme import BRAND_COLOR, configure_page, style_fig
 configure_page("Sales Overview", "📈")
 st.title("📈 Sales Overview")
 
-BLUE = BRAND_COLOR
+GREEN = BRAND_COLOR
 
 symbol, rate = currency_selector()
 df = load_orders_full()
@@ -40,14 +40,14 @@ fig_month = px.line(
     labels={"revenue": f"Revenue ({symbol})", "month": ""},
     markers=True,
 )
-fig_month.update_traces(line_color=BLUE, marker_color=BLUE)
+fig_month.update_traces(line_color=GREEN, marker_color=GREEN)
 fig_month.add_scatter(
     x=[peak["month"]],
     y=[peak["revenue"]],
     mode="markers+text",
     text=[f"peak: {peak['month'].strftime('%b %Y')}"],
     textposition="top center",
-    marker=dict(size=10, color=BLUE),
+    marker=dict(size=10, color=GREEN),
     showlegend=False,
 )
 st.plotly_chart(style_fig(fig_month), width="stretch")
@@ -70,7 +70,7 @@ with col1:
         labels={"revenue": f"Revenue ({symbol})", "product_category_name_english": ""},
         text=by_category["revenue"].map(fmt),
     )
-    fig_cat.update_traces(marker_color=BLUE, textposition="outside")
+    fig_cat.update_traces(marker_color=GREEN, textposition="outside")
     fig_cat.update_layout(
         yaxis={"categoryorder": "total ascending", "automargin": True},
         xaxis_range=[0, by_category["revenue"].max() * 1.2],
@@ -95,5 +95,5 @@ with col2:
         labels={"revenue": f"Revenue ({symbol})", "customer_state": ""},
         text="label",
     )
-    fig_state.update_traces(marker_color=BLUE, textposition="outside")
+    fig_state.update_traces(marker_color=GREEN, textposition="outside")
     st.plotly_chart(style_fig(fig_state), width="stretch")
