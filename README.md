@@ -7,14 +7,20 @@
 
 **Live demo:** [brazilian-e-commerce-f4g54pnlecrcpe78uuhovp.streamlit.app](https://brazilian-e-commerce-f4g54pnlecrcpe78uuhovp.streamlit.app/)
 
-![Dashboard preview](docs/img/dashboard-preview.png)
-
 An interactive Streamlit dashboard built on the Olist public dataset (~99k real orders placed on a
 Brazilian marketplace between 2016-2018). The dashboard joins nine relational CSV files — orders,
 order items, payments, reviews, customers, sellers, products, geolocation, and a category-name
 translation table — into one denormalized order-level table, then surfaces it as a single-page app
 with five tabs: overview, sales performance, delivery performance, review analysis, and a
 geographic revenue map. Deployed on Streamlit Community Cloud.
+
+## Preview
+
+---
+
+| Overview | Sales Overview | Delivery Performance |
+|:---:|:---:|:---:|
+| ![Overview](docs/img/preview-overview.png) | ![Sales Overview](docs/img/preview-sales-overview.png) | ![Delivery Performance](docs/img/preview-delivery-performance.png) |
 
 ## Project Structure
 
