@@ -1,16 +1,16 @@
 import plotly.express as px
 import streamlit as st
 
-from src.currency import currency_selector
+from src.currency import get_currency
 from src.data_loader import load_orders_full
 from src.theme import BRAND_COLOR, configure_page, style_fig
 
-configure_page("Sales Overview", "📈")
-st.title("📈 Sales Overview")
+configure_page("Sales Overview")
+st.title("Sales Overview")
 
 GREEN = BRAND_COLOR
 
-symbol, rate = currency_selector()
+symbol, rate = get_currency()
 df = load_orders_full()
 delivered = df[df["order_status"] == "delivered"].copy()
 delivered["revenue"] = delivered["payment_value"] / rate

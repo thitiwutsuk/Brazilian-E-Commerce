@@ -4,8 +4,8 @@ import streamlit as st
 from src.data_loader import load_orders_full
 from src.theme import ACCENT_RED, BRAND_COLOR, NEUTRAL_GREY, configure_page, style_fig
 
-configure_page("Delivery Performance", "🚚")
-st.title("🚚 Delivery Performance")
+configure_page("Delivery Performance")
+st.title("Delivery Performance")
 
 GREEN = BRAND_COLOR
 RED = ACCENT_RED

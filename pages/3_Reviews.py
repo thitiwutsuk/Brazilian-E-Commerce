@@ -1,14 +1,13 @@
 import plotly.express as px
 import streamlit as st
 
-from src.data_loader import load_order_reviews, load_orders_full
-from src.theme import DIVERGING_SCALE, SCORE_COLOR, configure_page, style_fig
+from src.data_loader import load_orders_full
+from src.theme import SCORE_COLOR, SCORE_SCALE, configure_page, style_fig
 
-configure_page("Reviews", "⭐")
-st.title("⭐ Customer Reviews")
+configure_page("Reviews")
+st.title("Customer Reviews")
 
 df = load_orders_full()
-reviews = load_order_reviews()
 
 col1, col2, col3 = st.columns(3)
 col1.metric("Avg. review score", f"{df['review_score'].mean():.2f} / 5")
@@ -48,9 +47,8 @@ with col2:
         title="Lowest-rated categories (min. 30 orders)",
         labels={"review_score": "Avg. review score", "product_category_name_english": ""},
         color="review_score",
-        color_continuous_scale=DIVERGING_SCALE,
+        color_continuous_scale=SCORE_SCALE,
         range_color=[1, 5],
-        color_continuous_midpoint=3,
         text=by_category["review_score"].map(lambda v: f"{v:.2f}"),
     )
     fig_cat.update_traces(textposition="outside")
@@ -63,15 +61,3 @@ with col2:
         xaxis_range=[by_category["review_score"].min() - 0.2, by_category["review_score"].max() + 0.2],
     )
     st.plotly_chart(style_fig(fig_cat), width="stretch")
-
-st.subheader("Sample of written reviews")
-with_text = reviews.dropna(subset=["review_comment_message"])
-score_filter = st.multiselect("Filter by score", options=sorted(reviews["review_score"].unique()), default=[])
-if score_filter:
-    with_text = with_text[with_text["review_score"].isin(score_filter)]
-st.dataframe(
-    with_text[["review_score", "review_comment_title", "review_comment_message"]].sample(
-        min(50, len(with_text)), random_state=42
-    ),
-    width="stretch",
-)

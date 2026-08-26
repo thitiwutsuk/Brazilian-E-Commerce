@@ -2,14 +2,14 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from src.currency import currency_selector
+from src.currency import get_currency
 from src.data_loader import load_geolocation, load_orders_full
 from src.theme import SEQUENTIAL_GREEN, configure_page, style_fig
 
-configure_page("Geo Map", "🗺️")
-st.title("🗺️ Customer & Revenue Map")
+configure_page("Geo Map")
+st.title("Customer & Revenue Map")
 
-symbol, rate = currency_selector()
+symbol, rate = get_currency()
 df = load_orders_full()
 geo = load_geolocation()
 
