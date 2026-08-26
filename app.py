@@ -2,12 +2,9 @@ import streamlit as st
 
 from src.currency import currency_selector
 from src.data_loader import load_orders_full
+from src.theme import configure_page
 
-st.set_page_config(
-    page_title="Olist E-Commerce Dashboard",
-    page_icon="🛒",
-    layout="wide",
-)
+configure_page("Olist E-Commerce Dashboard", "🛒")
 
 st.title("🛒 Brazilian E-Commerce (Olist) Dashboard")
 st.caption("Use the sidebar to navigate between analysis pages.")

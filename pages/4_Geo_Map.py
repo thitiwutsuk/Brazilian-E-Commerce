@@ -4,12 +4,10 @@ import streamlit as st
 
 from src.currency import currency_selector
 from src.data_loader import load_geolocation, load_orders_full
+from src.theme import SEQUENTIAL_BLUE, configure_page, style_fig
 
-st.set_page_config(page_title="Geo Map", page_icon="🗺️", layout="wide")
+configure_page("Geo Map", "🗺️")
 st.title("🗺️ Customer & Revenue Map")
-
-# Sequential blue ramp (magnitude), light -> dark.
-SEQUENTIAL_BLUE = ["#cde2fb", "#6da7ec", "#2a78d6", "#104281"]
 
 symbol, rate = currency_selector()
 df = load_orders_full()
@@ -65,4 +63,4 @@ fig = px.scatter_map(
     map_style="open-street-map",
 )
 fig.update_layout(coloraxis_colorbar_title=f"Revenue ({symbol})")
-st.plotly_chart(fig, width="stretch")
+st.plotly_chart(style_fig(fig), width="stretch")

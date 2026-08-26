@@ -2,15 +2,10 @@ import plotly.express as px
 import streamlit as st
 
 from src.data_loader import load_order_reviews, load_orders_full
+from src.theme import DIVERGING_SCALE, SCORE_COLOR, configure_page, style_fig
 
-st.set_page_config(page_title="Reviews", page_icon="⭐", layout="wide")
+configure_page("Reviews", "⭐")
 st.title("⭐ Customer Reviews")
-
-RED = "#e34948"
-NEUTRAL = "#898781"
-BLUE = "#2a78d6"
-DIVERGING_SCALE = [RED, NEUTRAL, BLUE]
-SCORE_COLOR = {1: "#e34948", 2: "#c46f68", 3: NEUTRAL, 4: "#5a80ac", 5: BLUE}
 
 df = load_orders_full()
 reviews = load_order_reviews()
@@ -36,7 +31,7 @@ with col1:
         marker_color=[SCORE_COLOR[s] for s in score_counts["review_score"]],
         textposition="outside",
     )
-    st.plotly_chart(fig_dist, width="stretch")
+    st.plotly_chart(style_fig(fig_dist), width="stretch")
 with col2:
     by_category = (
         df.dropna(subset=["review_score", "product_category_name_english"])
@@ -67,7 +62,7 @@ with col2:
         # invisible, which defeats the point of a "lowest-rated" chart.
         xaxis_range=[by_category["review_score"].min() - 0.2, by_category["review_score"].max() + 0.2],
     )
-    st.plotly_chart(fig_cat, width="stretch")
+    st.plotly_chart(style_fig(fig_cat), width="stretch")
 
 st.subheader("Sample of written reviews")
 with_text = reviews.dropna(subset=["review_comment_message"])

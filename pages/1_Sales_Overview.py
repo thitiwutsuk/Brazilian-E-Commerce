@@ -3,11 +3,12 @@ import streamlit as st
 
 from src.currency import currency_selector
 from src.data_loader import load_orders_full
+from src.theme import BRAND_COLOR, configure_page, style_fig
 
-st.set_page_config(page_title="Sales Overview", page_icon="📈", layout="wide")
+configure_page("Sales Overview", "📈")
 st.title("📈 Sales Overview")
 
-BLUE = "#2a78d6"
+BLUE = BRAND_COLOR
 
 symbol, rate = currency_selector()
 df = load_orders_full()
@@ -49,7 +50,7 @@ fig_month.add_scatter(
     marker=dict(size=10, color=BLUE),
     showlegend=False,
 )
-st.plotly_chart(fig_month, width="stretch")
+st.plotly_chart(style_fig(fig_month), width="stretch")
 
 col1, col2 = st.columns(2)
 
@@ -74,7 +75,7 @@ with col1:
         yaxis={"categoryorder": "total ascending", "automargin": True},
         xaxis_range=[0, by_category["revenue"].max() * 1.2],
     )
-    st.plotly_chart(fig_cat, width="stretch")
+    st.plotly_chart(style_fig(fig_cat), width="stretch")
 
 by_state = (
     delivered.groupby("customer_state", as_index=False)["revenue"]
@@ -95,4 +96,4 @@ with col2:
         text="label",
     )
     fig_state.update_traces(marker_color=BLUE, textposition="outside")
-    st.plotly_chart(fig_state, width="stretch")
+    st.plotly_chart(style_fig(fig_state), width="stretch")

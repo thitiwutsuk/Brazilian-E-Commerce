@@ -2,12 +2,13 @@ import plotly.express as px
 import streamlit as st
 
 from src.data_loader import load_orders_full
+from src.theme import ACCENT_RED, BRAND_COLOR, NEUTRAL_GREY, configure_page, style_fig
 
-st.set_page_config(page_title="Delivery Performance", page_icon="🚚", layout="wide")
+configure_page("Delivery Performance", "🚚")
 st.title("🚚 Delivery Performance")
 
-BLUE = "#2a78d6"
-RED = "#e34948"
+BLUE = BRAND_COLOR
+RED = ACCENT_RED
 
 df = load_orders_full()
 delivered = df[df["order_status"] == "delivered"].dropna(subset=["delivery_days", "delay_days"])
@@ -30,7 +31,7 @@ with col1:
     fig_hist.update_traces(marker_color=BLUE)
     fig_hist.add_vline(
         x=mean_days,
-        line_color="#898781",
+        line_color=NEUTRAL_GREY,
         annotation_text=f"mean: {mean_days:.1f} days",
         annotation_position="top",
     )
@@ -39,7 +40,7 @@ with col1:
     # into a sliver on the left.
     p99 = delivered["delivery_days"].quantile(0.99)
     fig_hist.update_xaxes(range=[0, p99])
-    st.plotly_chart(fig_hist, width="stretch")
+    st.plotly_chart(style_fig(fig_hist), width="stretch")
 with col2:
     by_state = (
         delivered.groupby("customer_state", as_index=False)["is_late"]
@@ -60,7 +61,7 @@ with col2:
         text="label",
     )
     fig_state.update_traces(marker_color=BLUE, textposition="outside")
-    st.plotly_chart(fig_state, width="stretch")
+    st.plotly_chart(style_fig(fig_state), width="stretch")
 
 st.subheader("Delivery delay vs. review score")
 st.caption(
@@ -79,5 +80,5 @@ fig_score = px.bar(
     text=by_score["delay_days"].map(lambda v: f"{v:+.1f}d"),
 )
 fig_score.update_traces(marker_color=by_score["color"], textposition="outside")
-fig_score.add_hline(y=0, line_color="#898781")
-st.plotly_chart(fig_score, width="stretch")
+fig_score.add_hline(y=0, line_color=NEUTRAL_GREY)
+st.plotly_chart(style_fig(fig_score), width="stretch")
