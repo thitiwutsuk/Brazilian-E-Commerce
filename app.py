@@ -1,4 +1,3 @@
-import pandas as pd
 import plotly.express as px
 import streamlit as st
 
@@ -31,24 +30,6 @@ with tab_overview:
     col2.metric("Customers", f"{df['customer_unique_id'].nunique():,}")
     col3.metric(f"Revenue ({symbol})", fmt(df["payment_value"].sum() / rate))
     col4.metric("Avg. review score", f"{df['review_score'].mean():.2f}")
-
-    st.divider()
-    st.subheader("Order fulfillment funnel")
-    order_level = df.drop_duplicates("order_id")
-    funnel_df = pd.DataFrame(
-        {
-            "stage": ["Purchased", "Approved", "Shipped", "Delivered"],
-            "orders": [
-                order_level["order_purchase_timestamp"].notna().sum(),
-                order_level["order_approved_at"].notna().sum(),
-                order_level["order_delivered_carrier_date"].notna().sum(),
-                order_level["order_delivered_customer_date"].notna().sum(),
-            ],
-        }
-    )
-    fig_funnel = px.funnel(funnel_df, x="orders", y="stage", title="Orders reaching each fulfillment stage")
-    fig_funnel.update_traces(marker_color=GREEN, connector_line_color=NEUTRAL_GREY)
-    st.plotly_chart(style_fig(fig_funnel), width="stretch")
 
     st.divider()
     st.subheader("Sample orders")
