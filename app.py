@@ -1,3 +1,4 @@
+import pandas as pd
 import plotly.express as px
 import streamlit as st
 
@@ -30,6 +31,24 @@ with tab_overview:
     col2.metric("Customers", f"{df['customer_unique_id'].nunique():,}")
     col3.metric(f"Revenue ({symbol})", fmt(df["payment_value"].sum() / rate))
     col4.metric("Avg. review score", f"{df['review_score'].mean():.2f}")
+
+    st.divider()
+    st.subheader("Order fulfillment funnel")
+    order_level = df.drop_duplicates("order_id")
+    funnel_df = pd.DataFrame(
+        {
+            "stage": ["Purchased", "Approved", "Shipped", "Delivered"],
+            "orders": [
+                order_level["order_purchase_timestamp"].notna().sum(),
+                order_level["order_approved_at"].notna().sum(),
+                order_level["order_delivered_carrier_date"].notna().sum(),
+                order_level["order_delivered_customer_date"].notna().sum(),
+            ],
+        }
+    )
+    fig_funnel = px.funnel(funnel_df, x="orders", y="stage", title="Orders reaching each fulfillment stage")
+    fig_funnel.update_traces(marker_color=GREEN, connector_line_color=NEUTRAL_GREY)
+    st.plotly_chart(style_fig(fig_funnel), width="stretch")
 
     st.divider()
     st.subheader("Sample orders")
@@ -197,6 +216,24 @@ with tab_delivery:
         )
         fig_late.update_traces(marker_color=GREEN, textposition="outside")
         st.plotly_chart(style_fig(fig_late), width="stretch")
+
+    st.caption("Top 10 states by order volume - the late-rate bar above shows how often orders are late; this shows how wide the actual delivery-time spread is.")
+    top10_states = (
+        delivery_delivered.groupby("customer_state")["delivery_days"].count().sort_values(ascending=False).head(10).index
+    )
+    box_df = delivery_delivered[delivery_delivered["customer_state"].isin(top10_states)]
+    box_p99 = box_df["delivery_days"].quantile(0.99)
+    fig_box = px.box(
+        box_df,
+        x="customer_state",
+        y="delivery_days",
+        title="Delivery time spread by state (top 10 by order volume)",
+        labels={"customer_state": "", "delivery_days": "Delivery time (days)"},
+        category_orders={"customer_state": list(top10_states)},
+    )
+    fig_box.update_traces(marker_color=GREEN, line_color=GREEN)
+    fig_box.update_yaxes(range=[0, box_p99])
+    st.plotly_chart(style_fig(fig_box), width="stretch")
 
     st.subheader("Delivery delay vs. review score")
     st.caption(
