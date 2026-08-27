@@ -105,7 +105,7 @@ with tab_sales:
         delivered.groupby("product_category_name_english", as_index=False)["revenue"]
         .sum()
         .sort_values("revenue", ascending=False)
-        .head(15)
+        .head(5)
     )
     with col1:
         fig_cat = px.bar(
@@ -113,7 +113,7 @@ with tab_sales:
             x="revenue",
             y="product_category_name_english",
             orientation="h",
-            title="Top 15 categories by revenue",
+            title="Top 5 categories by revenue",
             labels={"revenue": f"Revenue ({symbol})", "product_category_name_english": ""},
             text=by_category["revenue"].map(fmt),
         )
@@ -128,17 +128,15 @@ with tab_sales:
         delivered.groupby("customer_state", as_index=False)["revenue"]
         .sum()
         .sort_values("revenue", ascending=False)
+        .head(5)
     )
-    top5_states = set(by_state.head(5)["customer_state"])
-    by_state["label"] = by_state.apply(
-        lambda r: fmt(r["revenue"]) if r["customer_state"] in top5_states else "", axis=1
-    )
+    by_state["label"] = by_state["revenue"].map(fmt)
     with col2:
         fig_state = px.bar(
             by_state,
             x="customer_state",
             y="revenue",
-            title="Revenue by customer state (top 5 labeled)",
+            title="Revenue by customer state (top 5)",
             labels={"revenue": f"Revenue ({symbol})", "customer_state": ""},
             text="label",
         )
@@ -185,17 +183,15 @@ with tab_delivery:
             delivery_delivered.groupby("customer_state", as_index=False)["is_late"]
             .mean()
             .sort_values("is_late", ascending=False)
+            .head(5)
         )
-        worst5 = set(by_state_late.head(5)["customer_state"])
         by_state_late["pct"] = by_state_late["is_late"] * 100
-        by_state_late["label"] = by_state_late.apply(
-            lambda r: f"{r['pct']:.0f}%" if r["customer_state"] in worst5 else "", axis=1
-        )
+        by_state_late["label"] = by_state_late["pct"].map(lambda v: f"{v:.0f}%")
         fig_late = px.bar(
             by_state_late,
             x="customer_state",
             y="pct",
-            title="Late delivery rate by customer state (worst 5 labeled)",
+            title="Late delivery rate by customer state (worst 5)",
             labels={"pct": "Late deliveries (%)", "customer_state": ""},
             text="label",
         )
@@ -257,7 +253,7 @@ with tab_reviews:
                 right_index=True,
             )
         )
-        by_category_score = by_category_score[by_category_score["n"] >= 30].sort_values("review_score").head(15)
+        by_category_score = by_category_score[by_category_score["n"] >= 30].sort_values("review_score").head(5)
         fig_cat_score = px.bar(
             by_category_score,
             x="review_score",
