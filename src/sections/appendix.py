@@ -1,7 +1,7 @@
 import streamlit as st
 
 from src.kpis import KPIS, fmt_target, fmt_value, reporting_periods, scorecard
-from src.sections import modeling, quality
+from src.sections import modeling, quality, schema
 
 
 def _kpi_definitions() -> None:
@@ -33,7 +33,7 @@ def _kpi_definitions() -> None:
 
 def render() -> None:
     st.markdown("How the numbers in this report were built, and why they can be trusted.")
-    tabs = st.tabs(["KPI definitions & targets", "Data quality", "Cleaning & modeling"])
-    for tab, fn in zip(tabs, [_kpi_definitions, quality.render, modeling.render]):
+    tabs = st.tabs(["KPI definitions & targets", "Data architecture", "Data quality", "Cleaning & modeling"])
+    for tab, fn in zip(tabs, [_kpi_definitions, schema.render, quality.render, modeling.render]):
         with tab:
             fn()

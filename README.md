@@ -15,7 +15,7 @@ numbers, and recommended actions with sized impact.
 
 ---
 
-| Executive Summary | Data Architecture | Customer Experience |
+| Executive Summary | Appendix: Data Architecture | Customer Experience |
 |:---:|:---:|:---:|
 | ![Executive Summary](docs/img/preview-summary.png) | ![Data Architecture](docs/img/preview-architecture.png) | ![Customer Experience](docs/img/preview-experience.png) |
 
@@ -23,13 +23,12 @@ numbers, and recommended actions with sized impact.
 
 - Executive Summary: bottom line, KPI scorecard (YoY change + On track / Watch / Off track vs.
   target), what went well / what needs attention, top actions
-- Data Architecture: data flow from raw CSVs to report, raw data explorer (sample rows + column
-  profile per table), ER diagram, table catalog and foreign-key checks
 - Sales & Growth, Customer Experience, Customers & Markets: KPI cards, charts with a plain-language
   "what this means", and key findings
 - Recommendations: 5 actions with owner, priority, evidence and estimated impact
-- Appendix: KPI definitions & targets, 17 automated data quality checks, payment reconciliation
-  and the cleansing log
+- Appendix: KPI definitions & targets; data architecture (data flow from raw CSVs to report, raw
+  data explorer, ER diagram, table catalog, foreign-key checks); 17 automated data quality checks,
+  payment reconciliation and the cleansing log
 - Two fact tables with an explicit grain: order-level (1 row per order) and item-level
   (1 row per order item)
 - Fixed USD display conversion and a shared Plotly chart-styling system for a consistent look

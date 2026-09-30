@@ -2,7 +2,7 @@ import streamlit as st
 
 from src.data_loader import load_item_level, load_order_level
 from src.kpis import reporting_periods
-from src.sections import appendix, customers, delivery, recommendations, sales, schema, summary
+from src.sections import appendix, customers, delivery, recommendations, sales, summary
 from src.theme import configure_page
 
 configure_page("Olist Marketplace Performance Report")
@@ -15,7 +15,6 @@ load_item_level()
 
 SECTIONS = [
     ("Executive Summary", summary),
-    ("Data Architecture", schema),
     ("Sales & Growth", sales),
     ("Customer Experience", delivery),
     ("Customers & Markets", customers),

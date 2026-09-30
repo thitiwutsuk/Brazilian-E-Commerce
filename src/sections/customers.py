@@ -1,21 +1,18 @@
 import plotly.express as px
 import streamlit as st
 
-from src.currency import get_currency
-from src.data_loader import load_geolocation, load_order_level, load_raw
+from src.data_loader import load_order_level, load_raw
 from src.metrics import orders_per_customer
-from src.quality import BRAZIL_BOUNDS
 from src.kpis import render_cards
-from src.theme import BRAND_COLOR, NEUTRAL_GREY, SEQUENTIAL_GREEN, key_findings, section_header, style_fig, takeaway
+from src.theme import BRAND_COLOR, NEUTRAL_GREY, key_findings, section_header, style_fig, takeaway
 
 
 def render() -> None:
     section_header(
         "Who buys from us, do they come back, and where are they?",
         "Customers counted as people (customer_unique_id), all orders to date. Purchase frequency, share of "
-        "orders and GMV by state, and a map by zip code.",
+        "orders and GMV by state.",
     )
-    symbol, rate = get_currency()
     orders = load_order_level()
     freq = orders_per_customer()
     repeat = freq[freq > 1]
@@ -50,40 +47,6 @@ def render() -> None:
         f"acquiring new buyers, and 3 states ({', '.join(by_state['customer_state'].head(3))}) make up "
         f"{by_state['orders'].head(3).sum():.0f}% of orders - outside them we are still a small player."
     )
-
-    st.subheader("Map")
-    geo = load_geolocation()
-    by_zip = orders.groupby("customer_zip_code_prefix", as_index=False).agg(
-        orders=("order_id", "size"), revenue=("payment_value", "sum"), state=("customer_state", "first")
-    )
-    by_zip["revenue"] = by_zip["revenue"] / rate
-    by_zip = by_zip.merge(geo, left_on="customer_zip_code_prefix", right_on="geolocation_zip_code_prefix", how="inner")
-    # A few zip prefixes are geocoded outside Brazil (one lands in Portugal) and
-    # would force the map to zoom out to another continent.
-    by_zip = by_zip[
-        by_zip["geolocation_lat"].between(BRAZIL_BOUNDS["lat_min"], BRAZIL_BOUNDS["lat_max"])
-        & by_zip["geolocation_lng"].between(BRAZIL_BOUNDS["lon_min"], BRAZIL_BOUNDS["lon_max"])
-    ]
-    fig_geo = px.scatter_map(
-        by_zip,
-        lat="geolocation_lat",
-        lon="geolocation_lng",
-        size="orders",
-        color="revenue",
-        color_continuous_scale=SEQUENTIAL_GREEN,
-        # Revenue per zip is heavily right-skewed; cap the colour domain at the
-        # 95th percentile so the bulk of the map is not rendered near-white.
-        range_color=[0, by_zip["revenue"].quantile(0.95)],
-        hover_name="customer_zip_code_prefix",
-        hover_data={"state": True, "orders": True, "revenue": ":,.0f", "geolocation_lat": False, "geolocation_lng": False},
-        labels={"revenue": f"Revenue ({symbol})", "orders": "Orders"},
-        center={"lat": -14.2, "lon": -51.9},
-        zoom=3.2,
-        height=600,
-        map_style="open-street-map",
-    )
-    st.plotly_chart(style_fig(fig_geo))
-    st.caption(f"{len(by_zip):,} zip prefixes. Bubble size = orders, colour = revenue (capped at the 95th percentile).")
 
     sellers = load_raw("sellers")
     top = by_state.iloc[0]
