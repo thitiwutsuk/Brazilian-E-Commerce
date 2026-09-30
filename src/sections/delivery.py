@@ -3,7 +3,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.kpis import KPI_BY_KEY, monthly_kpis, render_cards
+from src.kpis import KPI_BY_KEY, monthly_kpis, period_slice, render_cards, reporting_periods
+from src.story import QUESTIONS, annotate_crises, question_label
 from src.metrics import LOW_SCORE, delivered_orders, late_vs_on_time
 from src.theme import ACCENT_RED, BRAND_COLOR, INK, NEUTRAL_GREY, key_findings, section_header, style_fig, takeaway
 
@@ -30,7 +31,7 @@ def _bucket(delay: pd.Series) -> pd.Series:
 
 def render() -> None:
     section_header(
-        "Are customers getting what we promised, and what happens when we miss?",
+        f"{question_label(2)} · {QUESTIONS[2]}",
         "Delivered orders only. Late = delivered after the date promised at checkout. Reviews compared across "
         f"delay buckets; a 1–{LOW_SCORE} star review counts as negative.",
     )
@@ -49,6 +50,7 @@ def render() -> None:
                     mode="lines+markers", line=dict(color=INK, width=2))
     fig.add_hline(y=KPI_BY_KEY["late"].target * 100, line_dash="dot", line_color=ACCENT_RED,
                   annotation_text=f"late-rate target {KPI_BY_KEY['late'].target:.0%}", annotation_position="top left")
+    annotate_crises(fig, below=True)
     fig.update_layout(title="Late deliveries and negative reviews move together", yaxis_title="%",
                       legend=dict(orientation="h", y=1.08, x=1, xanchor="right"), hovermode="x unified")
     st.plotly_chart(style_fig(fig))
@@ -108,20 +110,23 @@ def render() -> None:
 
     st.subheader("Where lateness happens")
     col1, col2 = st.columns(2)
-    national = d["is_late"].mean() * 100
+    periods = reporting_periods()
+    cur = period_slice("current")
+    cur = cur[(cur["order_status"] == "delivered") & cur["delivery_days"].notna()]
+    national = cur["is_late"].mean() * 100
     with col1:
-        by_state = d.groupby("customer_state").agg(orders=("order_id", "size"), late=("is_late", "mean")).reset_index()
+        by_state = cur.groupby("customer_state").agg(orders=("order_id", "size"), late=("is_late", "mean")).reset_index()
         by_state = by_state[by_state["orders"] >= MIN_STATE_ORDERS].sort_values("late", ascending=False).head(10)
         by_state["pct"] = by_state["late"] * 100
         fig = px.bar(by_state.sort_values("pct"), x="pct", y="customer_state", orientation="h",
-                     title=f"Late rate - worst 10 states (dotted line = national {national:.1f}%)",
+                     title=f"Late rate by state, {periods['label']} (dotted = national {national:.1f}%)",
                      labels={"pct": "Late deliveries (%)", "customer_state": ""},
                      text=by_state.sort_values("pct")["pct"].map(lambda v: f"{v:.0f}%"), hover_data={"orders": ":,"})
         fig.update_traces(marker_color=BRAND_COLOR, textposition="outside")
         fig.add_vline(x=national, line_color=NEUTRAL_GREY, line_dash="dot")
         fig.update_layout(xaxis_range=[0, by_state["pct"].max() * 1.2])
         st.plotly_chart(style_fig(fig))
-        st.caption(f"States with ≥{MIN_STATE_ORDERS} delivered orders, all orders to date.")
+        st.caption(f"Worst 10 states with ≥{MIN_STATE_ORDERS} delivered orders in {periods['label']}.")
     with col2:
         p99 = d["delivery_days"].quantile(0.99)
         fig = px.histogram(d, x="delivery_days", nbins=60, title="Delivery time distribution",
@@ -151,7 +156,8 @@ def render() -> None:
             "early, so 'on time' mostly means 'well ahead of a conservative promise'.",
             f"**Lateness is regional:** {worst['customer_state']} ({worst['pct']:.0f}%) and "
             f"{by_state.iloc[1]['customer_state']} ({by_state.iloc[1]['pct']:.0f}%) run at "
-            f"{worst['pct'] / national:.1f}x the national {national:.1f}% late rate - mostly north-eastern states "
+            f"{worst['pct'] / national:.1f}x the national {national:.1f}% late rate in {periods['label']} - mostly "
+            "north and north-eastern states "
             "far from the south-east seller base.",
         ],
         so_what="Keeping the delivery promise - especially at peak and in the north-east - is the most direct "

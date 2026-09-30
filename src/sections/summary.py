@@ -4,6 +4,7 @@ import streamlit as st
 from src.currency import fmt_money_short
 from src.kpis import KPI_BY_KEY, monthly_kpis, render_cards, reporting_periods, scorecard
 from src.sections.recommendations import recommendations
+from src.story import QUESTIONS, annotate_crises, crisis_months
 from src.theme import ACCENT_RED, GRID_GREY, INK, style_fig, takeaway
 
 
@@ -24,6 +25,7 @@ def _growth_vs_reliability_fig():
         legend=dict(orientation="h", y=1.1, x=1, xanchor="right"),
         hovermode="x unified",
     )
+    annotate_crises(fig, yref="y2")
     return style_fig(fig)
 
 
@@ -32,20 +34,36 @@ def render() -> None:
     card = scorecard()
     recs = recommendations()
     monthly = monthly_kpis().set_index("month")
-    crisis = monthly[monthly["late"] > 2 * KPI_BY_KEY["late"].target]
+    crisis = crisis_months().set_index("month")
     last3 = monthly.tail(3)
+    this_year = monthly[monthly.index.year == periods["as_of"].year]
+    peak_month = monthly["orders"].idxmax()
 
     with st.container(border=True):
-        st.markdown("#### Bottom line")
+        st.markdown("#### Problem statement")
         st.markdown(
-            f"We more than doubled the business - GMV **{fmt_money_short(card.loc['gmv', 'current'])}** "
-            f"(**{card.loc['gmv', 'change']:+.0%}** YoY) on **{card.loc['orders', 'current']:,.0f}** orders - "
-            f"but **delivery did not keep up**. The late delivery rate rose from {card.loc['late', 'prior']:.1%} to "
-            f"**{card.loc['late', 'current']:.1%}**, pushing negative reviews to **{card.loc['negative', 'current']:.1%}**. "
-            f"The damage came from peak months ({', '.join(f'{m:%b %Y}' for m in crisis.index)}) and has since "
-            f"recovered, which makes **Black Friday {periods['as_of'].year} the main risk** for the rest of the year. "
-            f"Growth is also almost entirely new customers: only **{card.loc['returning', 'current']:.1%}** of orders "
-            "come from returning buyers.".replace("$", "\\$")
+            "Olist grew very fast through 2017–2018. Fast growth raises a question management needs answered: "
+            f"**is the growth healthy?** With Black Friday {periods['as_of'].year} three months away - our busiest "
+            "period of the year - this review answers three questions:"
+        )
+        where = {1: "Sales & Growth, Customers & Markets", 2: "Customer Experience", 3: "Recommendations"}
+        st.markdown("\n".join(f"{n}. **{q}** *(→ {where[n]})*" for n, q in QUESTIONS.items()))
+
+    with st.container(border=True):
+        st.markdown("#### Answers in short")
+        st.markdown(
+            f"1. **Yes, but growth has levelled off.** GMV {fmt_money_short(card.loc['gmv', 'current'])} "
+            f"(**{card.loc['gmv', 'change']:+.0%}** YoY) on {card.loc['orders', 'current']:,.0f} orders, driven by the "
+            f"jump around Black Friday {peak_month:%Y}; since then volume is flat at "
+            f"{this_year['orders'].min() / 1000:.1f}–{this_year['orders'].max() / 1000:.1f}K orders a month, and a few "
+            "categories and sellers carry most of the revenue.\n"
+            f"2. **No - delivery did not keep up.** The late delivery rate rose from {card.loc['late', 'prior']:.1%} to "
+            f"**{card.loc['late', 'current']:.1%}**, breaking down in the peak months "
+            f"({', '.join(f'{m:%b %Y}' for m in crisis.index)}), and negative reviews rose to "
+            f"**{card.loc['negative', 'current']:.1%}**. Only {card.loc['returning', 'current']:.1%} of orders come "
+            "from returning customers.\n"
+            f"3. **Secure delivery capacity for Black Friday {periods['as_of'].year} first**, then fix the worst-served "
+            "states and start a second-purchase program.".replace("$", "\\$")
         )
 
     st.subheader("KPI scorecard")
@@ -58,10 +76,11 @@ def render() -> None:
 
     st.subheader("The story in one chart")
     st.plotly_chart(_growth_vs_reliability_fig())
+    normal = monthly.loc[monthly.index < crisis.index.min(), "late"].median()
     takeaway(
-        f"Late deliveries stayed near {monthly.loc[:crisis.index.min()].iloc[:-1]['late'].median():.0%} while volume "
-        f"grew steadily, then spiked to {crisis['late'].max():.0%} when demand peaked. Since then the rate is back "
-        f"to {last3['late'].min():.0%}–{last3['late'].max():.0%}. The system works at normal load and breaks at "
+        f"In normal months about {normal:.0%} of orders arrive late. When demand peaked, the late rate jumped to "
+        f"{', '.join(f'{r.late:.0%} ({m:%b %Y})' for m, r in crisis.iterrows())}. It has since recovered to "
+        f"{last3['late'].mean():.1%} on average over the last 3 months. The system works at normal load but breaks at "
         "peak load - that is what to fix before November."
     )
 
@@ -90,7 +109,7 @@ def render() -> None:
                 "- **Concentration risk:** a small group of sellers and categories carries most of the revenue."
             )
 
-    st.subheader("Recommended actions")
+    st.subheader(f"Q3 · {QUESTIONS[3]}")
     for i, r in enumerate(recs[:3], 1):
         st.markdown(f"{i}. **{r['title']}** ({r['priority']} priority, {r['owner']}) - {r['impact']}".replace("$", "\\$"))
     st.caption("Full evidence, actions and impact sizing in the *Recommendations* tab.")

@@ -49,7 +49,7 @@ def style_fig(fig):
 
 def section_header(question: str, method: str) -> None:
     """Opening of every report tab: the question it answers and how."""
-    st.markdown(f"**Question.** {question}")
+    st.markdown(f"#### {question}")
     st.caption(f"Method: {method}")
 
 

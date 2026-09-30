@@ -7,6 +7,7 @@ from src.currency import get_currency
 from src.data_loader import load_order_level
 from src.metrics import category_pareto, monthly_sales, n_for_share, peak_day, seller_pareto, yoy_growth
 from src.kpis import render_cards, reporting_periods
+from src.story import QUESTIONS, question_label
 from src.theme import BRAND_COLOR, NEUTRAL_GREY, INK, key_findings, section_header, style_fig, takeaway
 
 
@@ -29,7 +30,7 @@ def _pareto_fig(p, label, top, title):
 
 def render() -> None:
     section_header(
-        "Are we growing, and where does our revenue come from?",
+        f"{question_label(1)} · {QUESTIONS[1]}",
         "Same months compared year over year; month-over-month change for the latest months; share of revenue "
         "by product category and seller.",
     )
@@ -45,22 +46,29 @@ def render() -> None:
 
     st.subheader("This year vs. last year")
     periods = reporting_periods()
-    yoy_df = m.assign(year=m["month"].dt.year.astype(str), month_name=m["month"].dt.strftime("%b"),
-                      gmv=m["revenue"] / rate)
-    fig = px.line(yoy_df, x="month_name", y="gmv", color="year", markers=True, title="Monthly GMV by year",
-                  labels={"gmv": f"GMV ({symbol})", "month_name": "", "year": ""},
+    yoy_df = m.assign(year=m["month"].dt.year.astype(str), month_name=m["month"].dt.strftime("%b"))
+    this_year = m[m["month"].dt.year == yoy["year"]]
+    fig = px.line(yoy_df, x="month_name", y="orders", color="year", markers=True,
+                  title="Monthly orders by year - a step up at Black Friday, then flat",
+                  labels={"orders": "Orders", "month_name": "", "year": ""},
                   color_discrete_map={str(yoy["year"] - 1): NEUTRAL_GREY, str(yoy["year"]): BRAND_COLOR})
     fig.update_xaxes(categoryorder="array", categoryarray=pd.date_range("2000-01-01", periods=12, freq="MS").strftime("%b"))
-    fig.add_annotation(x=f"{peak_m['month']:%b}", y=peak_m["revenue"] / rate, text=f"Black Friday {peak_m['month']:%Y}",
-                       showarrow=True, arrowhead=0)
-    fig.update_layout(legend=dict(orientation="h", y=1.08, x=1, xanchor="right"))
+    fig.add_hrect(y0=this_year["orders"].min(), y1=this_year["orders"].max(), fillcolor=BRAND_COLOR, opacity=0.08,
+                  line_width=0, annotation_text=f"{yoy['year']}: flat at {this_year['orders'].min() / 1000:.1f}–"
+                  f"{this_year['orders'].max() / 1000:.1f}K orders/month", annotation_position="bottom left")
+    fig.add_annotation(x=f"{peak_m['month']:%b}", y=peak_m["orders"],
+                       text=f"<b>Black Friday {peak_m['month']:%Y}</b><br>{peak_d['date']:%d %b}: "
+                            f"{int(peak_d['orders']):,} orders in one day ({peak_d['orders'] / peak_d['median']:.0f}x normal)",
+                       showarrow=True, arrowhead=0, ax=-60, ay=-40)
+    fig.update_layout(legend=dict(orientation="h", y=1.08, x=1, xanchor="right"),
+                      yaxis_range=[0, yoy_df["orders"].max() * 1.25])
     st.plotly_chart(style_fig(fig))
-    latest = m.iloc[-1]
     takeaway(
         f"Every month of {yoy['year']} is well above the same month of {yoy['year'] - 1} "
-        f"(GMV {yoy['revenue']:+.0%} YoY for {periods['label']}), but the {yoy['year']} line is flat: "
-        f"{latest['month']:%B} GMV was {latest['revenue_mom']:+.0%} vs. the month before. The growth came from the "
-        f"step-up around Black Friday {yoy['year'] - 1}, not from continued monthly growth this year."
+        f"(orders {yoy['orders']:+.0%}, GMV {yoy['revenue']:+.0%} YoY for {periods['label']}), but the {yoy['year']} "
+        f"line is flat at {this_year['orders'].min() / 1000:.1f}–{this_year['orders'].max() / 1000:.1f}K orders a "
+        f"month. The growth came from one big step up around Black Friday {yoy['year'] - 1}, not from continued "
+        "monthly growth this year."
     )
 
     table = m.assign(revenue=m["revenue"] / rate)
@@ -77,7 +85,7 @@ def render() -> None:
             },
         )
 
-    st.subheader("Concentration")
+    st.subheader("Where the revenue comes from - and the concentration risk")
     cats = category_pareto()
     sellers = seller_pareto()
     n80 = n_for_share(cats)
@@ -113,7 +121,6 @@ def render() -> None:
              f"them would hurt more than losing the bottom half. Credit card is the default way to pay, and "
              f"{window['payment_installments'].gt(1).mean():.0%} of orders are paid in installments.")
 
-    this_year = m[m["month"].dt.year == yoy["year"]]
     freight_share = window["freight_value"].sum() / (window["item_price"].sum() + window["freight_value"].sum())
     installments = window["payment_installments"].gt(1).mean()
     key_findings(

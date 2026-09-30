@@ -4,12 +4,13 @@ import streamlit as st
 from src.data_loader import load_order_level, load_raw
 from src.metrics import orders_per_customer
 from src.kpis import render_cards
+from src.story import question_label
 from src.theme import BRAND_COLOR, NEUTRAL_GREY, key_findings, section_header, style_fig, takeaway
 
 
 def render() -> None:
     section_header(
-        "Who buys from us, do they come back, and where are they?",
+        f"{question_label(1, 2)} · Who buys from us, do they come back, and where are they?",
         "Customers counted as people (customer_unique_id), all orders to date. Purchase frequency, share of "
         "orders and GMV by state.",
     )

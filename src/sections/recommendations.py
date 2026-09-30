@@ -5,6 +5,7 @@ from src.currency import fmt_money_short
 from src.data_loader import load_item_level
 from src.kpis import KPI_BY_KEY, fmt_target, monthly_kpis, period_slice, reporting_periods, scorecard
 from src.metrics import late_vs_on_time
+from src.story import QUESTIONS, question_label
 from src.theme import section_header
 
 MIN_STATE_ORDERS = 300
@@ -112,7 +113,7 @@ def recommendations() -> list:
 
 def render() -> None:
     section_header(
-        "What should we do next, and what is it worth?",
+        f"{question_label(3)} · {QUESTIONS[3]} And what is each action worth?",
         "Each action is tied to a KPI that is off track. Impacts are rough estimates that assume the "
         "relationships observed in the data continue to hold - they size the opportunity, not a forecast.",
     )
