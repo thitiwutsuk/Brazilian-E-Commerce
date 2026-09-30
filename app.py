@@ -7,7 +7,7 @@ from src.theme import configure_page
 
 configure_page("Olist Marketplace Performance Report")
 st.title("Olist Marketplace Performance Report")
-st.caption(f"Data Intelligence · Business review {reporting_periods()['label']}")
+st.caption(f"Business review {reporting_periods()['label']}")
 
 # Warm the cache once so every tab reads the same prepared tables.
 load_order_level()

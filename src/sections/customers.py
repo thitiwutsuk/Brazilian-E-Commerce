@@ -9,11 +9,7 @@ from src.theme import BRAND_COLOR, NEUTRAL_GREY, key_findings, section_header, s
 
 
 def render() -> None:
-    section_header(
-        f"{question_label(1, 2)} · Who buys from us, do they come back, and where are they?",
-        "Customers counted as people (customer_unique_id), all orders to date. Purchase frequency, share of "
-        "orders and GMV by state.",
-    )
+    section_header(f"{question_label(1, 2)} · Who buys from us, do they come back, and where are they?")
     orders = load_order_level()
     freq = orders_per_customer()
     repeat = freq[freq > 1]

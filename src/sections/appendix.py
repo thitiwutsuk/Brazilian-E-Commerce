@@ -9,7 +9,7 @@ def _kpi_definitions() -> None:
     card = scorecard()
     st.markdown(
         f"All KPIs compare **{periods['label']}** with **{periods['prior_label']}**. Values and targets are shown "
-        "on the KPI cards. The dataset has no official targets - they are proposed by Data Intelligence and "
+        "on the KPI cards. The dataset has no official targets - they are proposed in this report and "
         "should be confirmed with each KPI owner."
     )
     st.dataframe(

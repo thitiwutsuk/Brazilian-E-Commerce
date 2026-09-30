@@ -100,7 +100,7 @@ def recommendations() -> list:
             kpi="GMV share and late rate of top sellers",
         ),
         dict(
-            priority="Low", owner="Data Intelligence",
+            priority="Low", owner="Analytics",
             title="Adopt this scorecard as the monthly business review",
             evidence="Targets in this report are proposed by the analyst - there are no official ones yet.",
             action="Confirm targets with each KPI owner and review the scorecard monthly; add weekly late-rate "
@@ -112,11 +112,7 @@ def recommendations() -> list:
 
 
 def render() -> None:
-    section_header(
-        f"{question_label(3)} · {QUESTIONS[3]} And what is each action worth?",
-        "Each action is tied to a KPI that is off track. Impacts are rough estimates that assume the "
-        "relationships observed in the data continue to hold - they size the opportunity, not a forecast.",
-    )
+    section_header(f"{question_label(3)} · {QUESTIONS[3]} And what is each action worth?")
     for i, r in enumerate(recommendations(), 1):
         with st.container(border=True):
             st.markdown(

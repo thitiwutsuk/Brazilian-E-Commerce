@@ -68,7 +68,7 @@ def render() -> None:
 
     st.subheader("KPI scorecard")
     st.caption(f"{periods['label']} vs. the same months last year. Hover the ⓘ for the definition. "
-               "Targets are proposed by Data Intelligence (see Appendix).")
+               "Targets are proposed, not official (see Appendix).")
     st.markdown("**Growth**")
     render_cards(["gmv", "orders", "aov", "customers"])
     st.markdown("**Customer health**")

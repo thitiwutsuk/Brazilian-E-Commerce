@@ -29,11 +29,7 @@ def _pareto_fig(p, label, top, title):
 
 
 def render() -> None:
-    section_header(
-        f"{question_label(1)} · {QUESTIONS[1]}",
-        "Same months compared year over year; month-over-month change for the latest months; share of revenue "
-        "by product category and seller.",
-    )
+    section_header(f"{question_label(1)} · {QUESTIONS[1]}")
     symbol, rate = get_currency()
     m = monthly_sales()
     yoy = yoy_growth()

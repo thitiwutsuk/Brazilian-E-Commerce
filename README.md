@@ -6,10 +6,9 @@
 ![Pandas](https://img.shields.io/badge/Pandas-2.0+-150458?style=flat-square&logo=pandas&logoColor=white)
 ![Progress](https://img.shields.io/badge/Progress-deployed-brightgreen?style=flat-square)
 
-A management business review built in Streamlit, written as the Olist Data Intelligence team
-reporting to the Head of Marketplace. It covers ~99K real orders (2016-2018) and compares
-Jan–Aug 2018 with the same months of 2017: a KPI scorecard with targets, the story behind the
-numbers, and recommended actions with sized impact.
+A management business review built in Streamlit for Olist's marketplace leadership. It covers
+~99K real orders (2016-2018) and compares Jan–Aug 2018 with the same months of 2017: a KPI
+scorecard with targets, the story behind the numbers, and recommended actions with sized impact.
 
 ## Preview
 

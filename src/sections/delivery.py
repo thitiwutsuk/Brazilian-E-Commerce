@@ -30,11 +30,7 @@ def _bucket(delay: pd.Series) -> pd.Series:
 
 
 def render() -> None:
-    section_header(
-        f"{question_label(2)} · {QUESTIONS[2]}",
-        "Delivered orders only. Late = delivered after the date promised at checkout. Reviews compared across "
-        f"delay buckets; a 1–{LOW_SCORE} star review counts as negative.",
-    )
+    section_header(f"{question_label(2)} · {QUESTIONS[2]}")
     d = delivered_orders()
     lvo = late_vs_on_time()
     late, on_time = lvo.loc["Late"], lvo.loc["On time / early"]
@@ -61,8 +57,6 @@ def render() -> None:
         f"{worst_m['negative']:.0%} of reviews were negative. Month to month, the two lines move almost in step "
         f"(correlation {corr:.2f}): when delivery slips, reviews follow."
     )
-    st.caption("Note: the latest months can look better than they will end up - orders still in transit at the "
-               "data cut-off are not counted as delivered yet, and the late ones are usually among them.")
 
     st.subheader("Delay vs. satisfaction")
     r = d.dropna(subset=["review_score"]).assign(bucket=lambda x: _bucket(x["delay_days"]))
