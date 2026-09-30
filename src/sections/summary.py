@@ -35,13 +35,6 @@ def render() -> None:
     crisis = monthly[monthly["late"] > 2 * KPI_BY_KEY["late"].target]
     last3 = monthly.tail(3)
 
-    st.markdown(
-        f"""
-**To:** Head of Marketplace · **From:** Data Intelligence · **Period:** {periods['label']} vs. {periods['prior_label']}
-· **Data as of:** {periods['as_of']:%d %b %Y}
-"""
-    )
-
     with st.container(border=True):
         st.markdown("#### Bottom line")
         st.markdown(

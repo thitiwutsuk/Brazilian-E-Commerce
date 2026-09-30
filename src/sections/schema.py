@@ -1,13 +1,14 @@
 import streamlit as st
 
 from src.data_loader import load_raw
-from src.schema import build_dot, relationship_stats, table_catalog
+from src.schema import TABLES, build_dot, build_flow_dot, column_profile, relationship_stats, table_catalog
 from src.theme import key_findings, section_header
 
 
 def render() -> None:
     section_header(
-        "What data do we have, what does one row mean in each table, and how do the tables connect?",
+        "Where do the numbers in this report come from, what does the raw data look like, and how do the "
+        "tables connect?",
         "Profiled all 9 source CSVs, declared primary/foreign keys, then measured every foreign key "
         "against its parent table (match rate, coverage, and fan-out).",
     )
@@ -15,7 +16,38 @@ def render() -> None:
     catalog = table_catalog()
     rels = relationship_stats().set_index("Child → Parent")
 
-    st.subheader("Entity-relationship diagram")
+    st.subheader("Data flow")
+    st.caption("From the raw files to this report. Every step is code, so the whole report rebuilds from the "
+               "CSVs in one run.")
+    st.graphviz_chart(build_flow_dot(), width="stretch")
+
+    st.subheader("Raw data")
+    st.caption("The source files exactly as delivered - pick a table to see its first rows and a profile of "
+               "every column.")
+    name = st.selectbox(
+        "Table",
+        list(TABLES),
+        format_func=lambda n: f"{n} - {TABLES[n]['desc']}",
+    )
+    row = catalog.set_index("Table").loc[name]
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Rows", f"{row['Rows']:,}")
+    col2.metric("Columns", row["Columns"])
+    col3.metric("File size", f"{row['Size (MB)']} MB")
+    col4.metric("Role", row["Role"])
+    st.markdown(f"**Grain:** {row['Grain']} · **Primary key:** `{row['Primary key']}`")
+    st.dataframe(load_raw(name).head(10), width="stretch", hide_index=True)
+    st.dataframe(
+        column_profile(name),
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "Non-null": st.column_config.ProgressColumn(format="percent", min_value=0, max_value=1),
+            "Distinct values": st.column_config.NumberColumn(format="localized"),
+        },
+    )
+
+    st.subheader("Data schema (entity-relationship diagram)")
     st.caption("Dark green = fact tables (events), light green = dimensions, grey = lookups. "
                "Crow's foot marks the 'many' side of each relationship.")
     st.graphviz_chart(build_dot(), width="stretch")
@@ -53,7 +85,7 @@ def render() -> None:
             f"(star-like model); geolocation alone is {geo.shape[0] / catalog['Rows'].sum():.0%} of all rows.",
             f"**orders → order_items is 1:N** - {(items_per_order > 1).mean():.1%} of orders have more than "
             f"one item (up to {int(item_fk['Max children per key'])}). Any order-level amount joined onto items "
-            "gets repeated: this is the grain trap examined in *Cleaning & Modeling*.",
+            "gets repeated: this is the grain trap fixed in *Appendix → Cleaning & modeling*.",
             f"**`customer_id` is not a customer.** It is issued per order ({customers['customer_id'].nunique():,} ids) - "
             f"the real person is `customer_unique_id` ({customers['customer_unique_id'].nunique():,}). "
             "Repeat-purchase analysis must use the latter.",

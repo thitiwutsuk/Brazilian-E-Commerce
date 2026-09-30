@@ -1,5 +1,7 @@
 """Metadata for the Olist relational model: tables, keys, and relationships."""
 
+import html
+
 import pandas as pd
 import streamlit as st
 
@@ -114,4 +116,61 @@ def build_dot() -> str:
         edge [dir=both, color="{NEUTRAL_GREY}", fontname="Helvetica", fontsize=10, fontcolor="{INK}"];
         {nodes}
         {edges}
+    }}"""
+
+
+@st.cache_data
+def column_profile(name: str) -> pd.DataFrame:
+    """One row per column of a raw table: type, completeness, cardinality, example."""
+    df = load_raw(name)
+    meta = TABLES[name]
+    fks = {ccol for child, ccol, *_ in RELATIONSHIPS if child == name}
+    rows = []
+    for col in df.columns:
+        s = df[col]
+        non_null = s.dropna()
+        rows.append(
+            {
+                "Column": col,
+                "Key": "PK" if col in meta["pk"] else ("FK" if col in fks else ""),
+                "Type": str(s.dtype).replace("object", "text"),
+                "Non-null": s.notna().mean(),
+                "Distinct values": s.nunique(),
+                "Example": str(non_null.iloc[0]) if len(non_null) else "",
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+# Stages of the pipeline, left to right: (node id, label, detail lines)
+_FLOW = [
+    ("raw", "Raw data", ["9 CSV files", "Olist public dataset", "{rows} rows"]),
+    ("clean", "Clean & conform", ["Parse dates", "Dedupe reviews", "Translate categories", "Collapse GPS to 1 point / zip"]),
+    ("model", "Analysis model", ["Order fact: 1 row / order", "Item fact: 1 row / item", "Geo lookup: 1 row / zip"]),
+    ("checks", "Quality gate", ["{checks} automated checks", "Payment reconciliation", "No-fan-out assertion"]),
+    ("report", "Report", ["KPI scorecard", "Findings & charts", "Recommendations"]),
+]
+
+
+def build_flow_dot() -> str:
+    """Graphviz DOT source for the end-to-end data flow."""
+    from src.quality import run_checks
+
+    stats = dict(rows=f"{table_catalog()['Rows'].sum() / 1e6:.2f}M", checks=len(run_checks()))
+    nodes = []
+    for node_id, title, lines in _FLOW:
+        # Graphviz HTML labels need XML escaping ("&" would drop the whole node).
+        title = html.escape(title)
+        body = "".join(f'<tr><td align="left">{html.escape(line.format(**stats))}</td></tr>' for line in lines)
+        nodes.append(
+            f'"{node_id}" [label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="5">'
+            f'<tr><td bgcolor="{BRAND_COLOR}"><b>{title}</b></td></tr>{body}</table>>];'
+        )
+    edges = " -> ".join(f'"{node_id}"' for node_id, *_ in _FLOW)
+    return f"""digraph flow {{
+        rankdir=LR; bgcolor="transparent";
+        node [shape=plaintext, fontname="Helvetica", fontsize=11, fontcolor="{INK}"];
+        edge [color="{NEUTRAL_GREY}", penwidth=1.5];
+        {' '.join(nodes)}
+        {edges};
     }}"""
