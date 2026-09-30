@@ -1,11 +1,13 @@
+import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import streamlit as st
 
-from src.currency import fmt_money, fmt_money_short, get_currency
+from src.currency import get_currency
 from src.data_loader import load_order_level
 from src.metrics import category_pareto, monthly_sales, n_for_share, peak_day, seller_pareto, yoy_growth
-from src.theme import BRAND_COLOR, NEUTRAL_GREY, INK, key_findings, section_header, style_fig
+from src.kpis import render_cards, reporting_periods
+from src.theme import BRAND_COLOR, NEUTRAL_GREY, INK, key_findings, section_header, style_fig, takeaway
 
 
 def _pareto_fig(p, label, top, title):
@@ -27,9 +29,9 @@ def _pareto_fig(p, label, top, title):
 
 def render() -> None:
     section_header(
-        "How did sales develop over time, and where does revenue concentrate?",
-        "Monthly orders and revenue inside the analysis window with MoM / YoY change; Pareto (cumulative share) "
-        "of revenue by product category and seller from the item fact.",
+        "Are we growing, and where does our revenue come from?",
+        "Same months compared year over year; month-over-month change for the latest months; share of revenue "
+        "by product category and seller.",
     )
     symbol, rate = get_currency()
     m = monthly_sales()
@@ -39,19 +41,27 @@ def render() -> None:
     orders = load_order_level()
     window = orders[orders["month"].between(m["month"].min(), m["month"].max()) & (orders["order_status"] != "canceled")]
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Revenue (window)", fmt_money_short(m["revenue"].sum()))
-    col2.metric("Orders (window)", f"{m['orders'].sum():,}")
-    col3.metric("Avg. order value", fmt_money(window["payment_value"].mean()))
-    col4.metric(f"YoY orders ({yoy['year']}, Jan–Aug)", f"{yoy['orders']:+.0%}")
+    render_cards(["gmv", "orders", "aov", "customers"])
 
-    st.subheader("Trend")
-    fig = px.line(m, x="month", y=m["revenue"] / rate, markers=True, title="Monthly revenue",
-                  labels={"y": f"Revenue ({symbol})", "month": ""})
-    fig.update_traces(line_color=BRAND_COLOR, marker_color=BRAND_COLOR)
-    fig.add_annotation(x=peak_m["month"], y=peak_m["revenue"] / rate,
-                       text=f"{peak_m['month']:%b %Y}: {peak_m['orders_mom']:+.0%} MoM", showarrow=True, arrowhead=0)
+    st.subheader("This year vs. last year")
+    periods = reporting_periods()
+    yoy_df = m.assign(year=m["month"].dt.year.astype(str), month_name=m["month"].dt.strftime("%b"),
+                      gmv=m["revenue"] / rate)
+    fig = px.line(yoy_df, x="month_name", y="gmv", color="year", markers=True, title="Monthly GMV by year",
+                  labels={"gmv": f"GMV ({symbol})", "month_name": "", "year": ""},
+                  color_discrete_map={str(yoy["year"] - 1): NEUTRAL_GREY, str(yoy["year"]): BRAND_COLOR})
+    fig.update_xaxes(categoryorder="array", categoryarray=pd.date_range("2000-01-01", periods=12, freq="MS").strftime("%b"))
+    fig.add_annotation(x=f"{peak_m['month']:%b}", y=peak_m["revenue"] / rate, text=f"Black Friday {peak_m['month']:%Y}",
+                       showarrow=True, arrowhead=0)
+    fig.update_layout(legend=dict(orientation="h", y=1.08, x=1, xanchor="right"))
     st.plotly_chart(style_fig(fig))
+    latest = m.iloc[-1]
+    takeaway(
+        f"Every month of {yoy['year']} is well above the same month of {yoy['year'] - 1} "
+        f"(GMV {yoy['revenue']:+.0%} YoY for {periods['label']}), but the {yoy['year']} line is flat: "
+        f"{latest['month']:%B} GMV was {latest['revenue_mom']:+.0%} vs. the month before. The growth came from the "
+        f"step-up around Black Friday {yoy['year'] - 1}, not from continued monthly growth this year."
+    )
 
     table = m.assign(revenue=m["revenue"] / rate)
     with st.expander("Monthly table (orders, revenue, MoM %)"):
@@ -73,6 +83,9 @@ def render() -> None:
     n80 = n_for_share(cats)
     st.plotly_chart(style_fig(_pareto_fig(cats, "product_category_name_english", 25,
                                           "Revenue by category - top 25 with cumulative share")))
+    takeaway(f"{n80} categories out of {len(cats)} bring in 80% of revenue. Stock-outs, price moves or delivery "
+             f"problems in the top few ({', '.join(cats['product_category_name_english'].head(3))}) move the whole "
+             "business - they deserve the closest monitoring.")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -96,6 +109,10 @@ def render() -> None:
         fig_pay.update_layout(xaxis_range=[0, pay["pct"].max() * 1.2])
         st.plotly_chart(style_fig(fig_pay))
 
+    takeaway(f"The top 10% of sellers bring in {by_decile.iloc[0]['share']:.0%} of revenue - losing a handful of "
+             f"them would hurt more than losing the bottom half. Credit card is the default way to pay, and "
+             f"{window['payment_installments'].gt(1).mean():.0%} of orders are paid in installments.")
+
     this_year = m[m["month"].dt.year == yoy["year"]]
     freight_share = window["freight_value"].sum() / (window["item_price"].sum() + window["freight_value"].sum())
     installments = window["payment_installments"].gt(1).mean()
@@ -115,6 +132,6 @@ def render() -> None:
             f"**Credit card dominates** ({pay.set_index('payment_type').loc['credit_card', 'pct']:.0f}% of revenue) and "
             f"{installments:.0%} of orders pay in installments; freight is {freight_share:.0%} of what customers pay for items + shipping.",
         ],
-        so_what="Plan capacity and campaigns around Black Friday, and protect the few categories and sellers "
-        "that carry most of the revenue.",
+        so_what="Growth is real but has levelled off. Black Friday is the biggest lever on volume, and a small "
+        "set of categories and sellers carries the revenue - both need to be planned for and protected.",
     )

@@ -159,6 +159,10 @@ def load_order_level() -> pd.DataFrame:
     assert len(df) == len(orders) and df["order_id"].is_unique, "order-level join fanned out"
     df["n_items"] = df["n_items"].fillna(0).astype(int)
     df["month"] = df["order_purchase_timestamp"].dt.to_period("M").dt.to_timestamp()
+    # 1 = the customer's first order ever, 2 = their second, ...
+    df["order_seq"] = (
+        df.sort_values("order_purchase_timestamp").groupby("customer_unique_id").cumcount().reindex(df.index) + 1
+    )
     return _add_delivery_metrics(df)
 
 

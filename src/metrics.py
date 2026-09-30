@@ -5,9 +5,8 @@ import pandas as pd
 import streamlit as st
 
 from src.data_loader import load_item_level, load_order_level
+from src.kpis import LOW_SCORE
 from src.quality import analysis_window
-
-LOW_SCORE = 2  # reviews at or below this are "negative"
 
 
 @st.cache_data

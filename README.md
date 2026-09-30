@@ -6,26 +6,28 @@
 ![Pandas](https://img.shields.io/badge/Pandas-2.0+-150458?style=flat-square&logo=pandas&logoColor=white)
 ![Progress](https://img.shields.io/badge/Progress-deployed-brightgreen?style=flat-square)
 
-An analytical report in Streamlit on ~99K real orders from Olist, a Brazilian marketplace
-(2016-2018). The tabs follow the analysis step by step (schema, data quality, cleaning &
-modeling, sales, delivery & satisfaction, customers), and each tab ends with key findings
-computed from the data.
+A management business review built in Streamlit, written as the Olist Data Intelligence team
+reporting to the Head of Marketplace. It covers ~99K real orders (2016-2018) and compares
+Jan–Aug 2018 with the same months of 2017: a KPI scorecard with targets, the story behind the
+numbers, and recommended actions with sized impact.
 
 ## Preview
 
 ---
 
-| Data Schema | Sales | Delivery & Satisfaction |
+| Executive Summary | Sales & Growth | Customer Experience |
 |:---:|:---:|:---:|
-| ![Data Schema](docs/img/preview-schema.png) | ![Sales](docs/img/preview-sales.png) | ![Delivery & Satisfaction](docs/img/preview-delivery.png) |
+| ![Executive Summary](docs/img/preview-summary.png) | ![Sales & Growth](docs/img/preview-sales.png) | ![Customer Experience](docs/img/preview-experience.png) |
 
 ## Features
 
-- Report tabs: Summary, Data Schema, Data Quality, Cleaning & Modeling, Sales, Delivery &
-  Satisfaction, Customers & Geography. Each tab states its question and method, shows the
-  evidence, and ends with key findings and a "so what"
-- Data Schema: ER diagram, table catalog (grain, PK) and measured foreign-key match rates
-- Data Quality: 17 automated checks (PASS/WARN/FAIL), monthly coverage and payment reconciliation
+- Executive Summary: bottom line, KPI scorecard (YoY change + On track / Watch / Off track vs.
+  target), what went well / what needs attention, top actions
+- Sales & Growth, Customer Experience, Customers & Markets: KPI cards, charts with a plain-language
+  "what this means", and key findings
+- Recommendations: 5 actions with owner, priority, evidence and estimated impact
+- Appendix: KPI definitions & targets, ER diagram and table catalog, 17 automated data quality
+  checks, payment reconciliation and the cleansing log
 - Two fact tables with an explicit grain: order-level (1 row per order) and item-level
   (1 row per order item)
 - Fixed USD display conversion and a shared Plotly chart-styling system for a consistent look
@@ -40,6 +42,7 @@ Brazilian E-Commerce/
 │   ├── data_loader.py        # Cached loaders for each CSV + order-level and item-level fact tables
 │   ├── schema.py             # Table/key metadata, FK match rates, ER diagram (Graphviz DOT)
 │   ├── quality.py            # Data quality checks, reconciliation, cleansing log
+│   ├── kpis.py               # KPI definitions, targets, reporting period, scorecard
 │   ├── metrics.py            # Shared metrics used by the tabs and the summary
 │   ├── sections/             # One module per report tab
 │   ├── currency.py           # Fixed BRL→USD display conversion
@@ -71,8 +74,9 @@ streamlit run app.py
   cannot fan out.
 - Reconciled payments against items + freight: totals differ by 0.02%, and only 0.25% of orders
   are off by more than R$1.
-- Showed that late orders are 6.7x as likely to get a 1-2 star review (62% vs. 9%), and that
-  negative reviews rise steadily with the size of the delay.
+- Showed that late orders are 6.7x as likely to get a 1-2 star review (62% vs. 9%), and traced
+  the YoY doubling of the late rate (3.5% → 7.7%) to three peak months, starting with Black
+  Friday 2017.
 - Redesigned every chart against a systematic color methodology instead of default styling,
   catching a map silently centered on Africa and a Plotly title bug in the process.
 - Migrated the UI from a multi-page app to a single-page tabbed layout and verified every release

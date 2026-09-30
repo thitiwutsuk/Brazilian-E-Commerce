@@ -1,24 +1,25 @@
 import streamlit as st
 
 from src.data_loader import load_item_level, load_order_level
-from src.sections import customers, delivery, modeling, quality, sales, schema, summary
+from src.kpis import reporting_periods
+from src.sections import appendix, customers, delivery, recommendations, sales, summary
 from src.theme import configure_page
 
-configure_page("Olist E-Commerce Report")
-st.title("Brazilian E-Commerce (Olist): Analytical Report")
+configure_page("Olist Marketplace Performance Report")
+st.title("Olist Marketplace Performance Report")
+st.caption(f"Data Intelligence · Business review {reporting_periods()['label']}")
 
 # Warm the cache once so every tab reads the same prepared tables.
 load_order_level()
 load_item_level()
 
 SECTIONS = [
-    ("Summary", summary),
-    ("1. Data Schema", schema),
-    ("2. Data Quality", quality),
-    ("3. Cleaning & Modeling", modeling),
-    ("4. Sales", sales),
-    ("5. Delivery & Satisfaction", delivery),
-    ("6. Customers & Geography", customers),
+    ("Executive Summary", summary),
+    ("Sales & Growth", sales),
+    ("Customer Experience", delivery),
+    ("Customers & Markets", customers),
+    ("Recommendations", recommendations),
+    ("Appendix: Data & Methodology", appendix),
 ]
 
 for tab, (_, section) in zip(st.tabs([name for name, _ in SECTIONS]), SECTIONS):

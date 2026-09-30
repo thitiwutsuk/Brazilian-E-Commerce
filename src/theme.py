@@ -62,4 +62,32 @@ def key_findings(findings: list, so_what: str = "") -> None:
         st.markdown("#### Key findings")
         st.markdown("\n".join(f"{i}. {f}" for i, f in enumerate(findings, 1)))
         if so_what:
-            st.markdown(f"**So what:** {so_what}")
+            st.markdown(f"**What this means for us:** {so_what}")
+
+
+STATUS_STYLE = {
+    "On track": ("#E6F9EE", "#00893D"),
+    "Watch": ("#FFF4D6", "#8A6100"),
+    "Off track": ("#FDE7E7", "#B42318"),
+}
+
+
+def status_badge(status: str) -> str:
+    bg, fg = STATUS_STYLE[status]
+    return (f'<span style="background:{bg};color:{fg};padding:2px 8px;border-radius:10px;'
+            f'font-size:0.8rem;font-weight:600;white-space:nowrap">{status}</span>')
+
+
+def kpi_card(label, value, delta, higher_is_better, status, target, meaning, help) -> None:
+    with st.container(border=True):
+        st.metric(label, value, delta, delta_color="normal" if higher_is_better else "inverse", help=help)
+        st.markdown(
+            f'{status_badge(status)} <span style="color:{NEUTRAL_GREY};font-size:0.8rem">Target {target}</span>',
+            unsafe_allow_html=True,
+        )
+        st.caption(meaning)
+
+
+def takeaway(text: str) -> None:
+    """One-line "what this means" under a chart, in plain business language."""
+    st.markdown(f"**What this means:** {text.replace('$', chr(92) + '$')}")

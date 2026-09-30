@@ -1,9 +1,11 @@
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
+from src.kpis import KPI_BY_KEY, monthly_kpis, render_cards
 from src.metrics import LOW_SCORE, delivered_orders, late_vs_on_time
-from src.theme import ACCENT_RED, BRAND_COLOR, NEUTRAL_GREY, key_findings, section_header, style_fig
+from src.theme import ACCENT_RED, BRAND_COLOR, INK, NEUTRAL_GREY, key_findings, section_header, style_fig, takeaway
 
 MIN_STATE_ORDERS = 300  # ignore states too small for a stable late rate
 
@@ -28,19 +30,37 @@ def _bucket(delay: pd.Series) -> pd.Series:
 
 def render() -> None:
     section_header(
-        "How reliable is delivery, and how much does it drive customer satisfaction?",
-        "Delivered orders only. Delay = actual minus estimated delivery date. Review outcomes compared across "
-        f"delay buckets and late vs. on-time orders; a review of 1–{LOW_SCORE} stars counts as negative.",
+        "Are customers getting what we promised, and what happens when we miss?",
+        "Delivered orders only. Late = delivered after the date promised at checkout. Reviews compared across "
+        f"delay buckets; a 1–{LOW_SCORE} star review counts as negative.",
     )
     d = delivered_orders()
     lvo = late_vs_on_time()
     late, on_time = lvo.loc["Late"], lvo.loc["On time / early"]
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Median delivery time", f"{d['delivery_days'].median():.0f} days")
-    col2.metric("Late deliveries", f"{d['is_late'].mean():.1%}")
-    col3.metric("Avg. delay when late", f"{d.loc[d['is_late'], 'delay_days'].mean():.1f} days")
-    col4.metric("Arrived early by (median)", f"{-d.loc[~d['is_late'], 'delay_days'].median():.0f} days")
+    render_cards(["late", "negative", "review", "delivery_days"])
+
+    st.subheader("Monthly trend")
+    mk = monthly_kpis()
+    fig = go.Figure()
+    fig.add_scatter(x=mk["month"], y=mk["late"] * 100, name="Late deliveries (%)", mode="lines+markers",
+                    line=dict(color=ACCENT_RED, width=3))
+    fig.add_scatter(x=mk["month"], y=mk["negative"] * 100, name=f"1–{LOW_SCORE} star reviews (%)",
+                    mode="lines+markers", line=dict(color=INK, width=2))
+    fig.add_hline(y=KPI_BY_KEY["late"].target * 100, line_dash="dot", line_color=ACCENT_RED,
+                  annotation_text=f"late-rate target {KPI_BY_KEY['late'].target:.0%}", annotation_position="top left")
+    fig.update_layout(title="Late deliveries and negative reviews move together", yaxis_title="%",
+                      legend=dict(orientation="h", y=1.08, x=1, xanchor="right"), hovermode="x unified")
+    st.plotly_chart(style_fig(fig))
+    worst_m = mk.loc[mk["late"].idxmax()]
+    corr = mk["late"].corr(mk["negative"])
+    takeaway(
+        f"In the worst month ({worst_m['month']:%b %Y}) {worst_m['late']:.0%} of orders arrived late and "
+        f"{worst_m['negative']:.0%} of reviews were negative. Month to month, the two lines move almost in step "
+        f"(correlation {corr:.2f}): when delivery slips, reviews follow."
+    )
+    st.caption("Note: the latest months can look better than they will end up - orders still in transit at the "
+               "data cut-off are not counted as delivered yet, and the late ones are usually among them.")
 
     st.subheader("Delay vs. satisfaction")
     r = d.dropna(subset=["review_score"]).assign(bucket=lambda x: _bucket(x["delay_days"]))
@@ -67,6 +87,13 @@ def render() -> None:
         fig.update_yaxes(range=[0, by_bucket["negative"].max() * 1.2])
         st.plotly_chart(style_fig(fig))
 
+    neg = by_bucket.set_index(by_bucket["bucket"].astype(str))["negative"]
+    takeaway(
+        f"Arriving early barely changes the score ({neg.iloc[0]:.0f}–{neg.loc['On the day']:.0f}% negative), but "
+        f"every day late costs us: {neg.loc['1–3 late']:.0f}% negative at 1–3 days late and "
+        f"{neg.iloc[-1]:.0f}% beyond a week. Keeping the promised date matters more than delivering faster."
+    )
+
     st.dataframe(
         lvo.reset_index().rename(columns={"is_late": "Delivery", "orders": "Orders", "avg_review": "Avg. review",
                                           "negative_share": f"1–{LOW_SCORE} star share"}),
@@ -87,14 +114,14 @@ def render() -> None:
         by_state = by_state[by_state["orders"] >= MIN_STATE_ORDERS].sort_values("late", ascending=False).head(10)
         by_state["pct"] = by_state["late"] * 100
         fig = px.bar(by_state.sort_values("pct"), x="pct", y="customer_state", orientation="h",
-                     title=f"Late rate - worst 10 states (≥{MIN_STATE_ORDERS} orders)",
+                     title=f"Late rate - worst 10 states (dotted line = national {national:.1f}%)",
                      labels={"pct": "Late deliveries (%)", "customer_state": ""},
                      text=by_state.sort_values("pct")["pct"].map(lambda v: f"{v:.0f}%"), hover_data={"orders": ":,"})
         fig.update_traces(marker_color=BRAND_COLOR, textposition="outside")
-        fig.add_vline(x=national, line_color=NEUTRAL_GREY, line_dash="dot",
-                      annotation_text=f"national {national:.1f}%", annotation_position="top right")
+        fig.add_vline(x=national, line_color=NEUTRAL_GREY, line_dash="dot")
         fig.update_layout(xaxis_range=[0, by_state["pct"].max() * 1.2])
         st.plotly_chart(style_fig(fig))
+        st.caption(f"States with ≥{MIN_STATE_ORDERS} delivered orders, all orders to date.")
     with col2:
         p99 = d["delivery_days"].quantile(0.99)
         fig = px.histogram(d, x="delivery_days", nbins=60, title="Delivery time distribution",
@@ -112,8 +139,8 @@ def render() -> None:
     worst_late = by_bucket.iloc[-1]
     key_findings(
         [
-            f"**Late delivery is uncommon but costly:** {d['is_late'].mean():.1%} of delivered orders arrive after the "
-            f"estimate. Their average review is **{late['avg_review']:.2f}** vs. **{on_time['avg_review']:.2f}** "
+            f"**Late delivery is uncommon but costly:** across all deliveries to date, {d['is_late'].mean():.1%} "
+            f"arrived after the promised date. Their average review is **{late['avg_review']:.2f}** vs. **{on_time['avg_review']:.2f}** "
             "for on-time orders.",
             f"**A late order is {late['negative_share'] / on_time['negative_share']:.1f}x as likely to get a 1–{LOW_SCORE} "
             f"star review** ({late['negative_share']:.0%} vs. {on_time['negative_share']:.0%}).",
@@ -127,7 +154,7 @@ def render() -> None:
             f"{worst['pct'] / national:.1f}x the national {national:.1f}% late rate - mostly north-eastern states "
             "far from the south-east seller base.",
         ],
-        so_what="Reducing late deliveries in the worst states is the most direct lever on review scores. "
-        "These are associations from observational data, not proven causes - other factors (product, seller) "
-        "may also play a part.",
+        so_what="Keeping the delivery promise - especially at peak and in the north-east - is the most direct "
+        "lever on review scores. (These are associations in historical data, not proven causes; product and "
+        "seller also play a part.)",
     )

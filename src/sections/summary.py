@@ -1,64 +1,103 @@
+import plotly.graph_objects as go
 import streamlit as st
 
-from src.currency import fmt_money, fmt_money_short
-from src.data_loader import load_order_level
-from src.metrics import (
-    category_pareto,
-    delivered_orders,
-    late_vs_on_time,
-    n_for_share,
-    orders_per_customer,
-    peak_day,
-    yoy_growth,
-)
-from src.quality import analysis_window, grain_comparison
-from src.theme import key_findings
+from src.currency import fmt_money_short
+from src.kpis import KPI_BY_KEY, monthly_kpis, render_cards, reporting_periods, scorecard
+from src.sections.recommendations import recommendations
+from src.theme import ACCENT_RED, GRID_GREY, INK, style_fig, takeaway
+
+
+def _growth_vs_reliability_fig():
+    m = monthly_kpis()
+    late_target = KPI_BY_KEY["late"].target
+    fig = go.Figure()
+    fig.add_bar(x=m["month"], y=m["orders"], name="Orders", marker_color=GRID_GREY, marker_line_width=0)
+    fig.add_scatter(x=m["month"], y=m["late"] * 100, name="Late delivery rate (%)", yaxis="y2",
+                    mode="lines+markers", line=dict(color=ACCENT_RED, width=3))
+    fig.add_scatter(x=m["month"], y=[late_target * 100] * len(m), name=f"Late-rate target ({late_target:.0%})",
+                    yaxis="y2", mode="lines", line=dict(color=INK, dash="dot", width=1))
+    fig.update_layout(
+        title="Orders kept growing - delivery reliability broke at the peaks",
+        yaxis=dict(title="Orders", showgrid=False),
+        yaxis2=dict(title="Late deliveries (%)", overlaying="y", side="right", rangemode="tozero", showgrid=True,
+                    gridcolor=GRID_GREY),
+        legend=dict(orientation="h", y=1.1, x=1, xanchor="right"),
+        hovermode="x unified",
+    )
+    return style_fig(fig)
 
 
 def render() -> None:
-    orders = load_order_level()
-    start, end = analysis_window()
+    periods = reporting_periods()
+    card = scorecard()
+    recs = recommendations()
+    monthly = monthly_kpis().set_index("month")
+    crisis = monthly[monthly["late"] > 2 * KPI_BY_KEY["late"].target]
+    last3 = monthly.tail(3)
+
     st.markdown(
-        f"An analysis of **{len(orders):,} orders** from Olist, a Brazilian marketplace "
-        f"({orders['order_purchase_timestamp'].min():%b %Y} – {orders['order_purchase_timestamp'].max():%b %Y}). "
-        "The tabs follow the analysis in order: **schema → data quality → cleaning & modeling → sales → "
-        "delivery & satisfaction → customers**. Each ends with its key findings."
+        f"""
+**To:** Head of Marketplace · **From:** Data Intelligence · **Period:** {periods['label']} vs. {periods['prior_label']}
+· **Data as of:** {periods['as_of']:%d %b %Y}
+"""
     )
 
-    valid = orders[orders["order_status"] != "canceled"]
-    freq = orders_per_customer()
-    d = delivered_orders()
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
-    col1.metric("Orders", f"{len(orders):,}")
-    col2.metric("Customers", f"{len(freq):,}")
-    col3.metric("Revenue", fmt_money_short(valid["payment_value"].sum()))
-    col4.metric("Avg. order value", fmt_money(valid["payment_value"].mean()))
-    col5.metric("Avg. review", f"{orders['review_score'].mean():.2f} / 5")
-    col6.metric("Late deliveries", f"{d['is_late'].mean():.1%}")
+    with st.container(border=True):
+        st.markdown("#### Bottom line")
+        st.markdown(
+            f"We more than doubled the business - GMV **{fmt_money_short(card.loc['gmv', 'current'])}** "
+            f"(**{card.loc['gmv', 'change']:+.0%}** YoY) on **{card.loc['orders', 'current']:,.0f}** orders - "
+            f"but **delivery did not keep up**. The late delivery rate rose from {card.loc['late', 'prior']:.1%} to "
+            f"**{card.loc['late', 'current']:.1%}**, pushing negative reviews to **{card.loc['negative', 'current']:.1%}**. "
+            f"The damage came from peak months ({', '.join(f'{m:%b %Y}' for m in crisis.index)}) and has since "
+            f"recovered, which makes **Black Friday {periods['as_of'].year} the main risk** for the rest of the year. "
+            f"Growth is also almost entirely new customers: only **{card.loc['returning', 'current']:.1%}** of orders "
+            "come from returning buyers.".replace("$", "\\$")
+        )
 
-    grains = grain_comparison()
-    lvo = late_vs_on_time()
-    late, on_time = lvo.loc["Late"], lvo.loc["On time / early"]
-    yoy = yoy_growth()
-    peak = peak_day()
-    cats = category_pareto()
+    st.subheader("KPI scorecard")
+    st.caption(f"{periods['label']} vs. the same months last year. Hover the ⓘ for the definition. "
+               "Targets are proposed by Data Intelligence (see Appendix).")
+    st.markdown("**Growth**")
+    render_cards(["gmv", "orders", "aov", "customers"])
+    st.markdown("**Customer health**")
+    render_cards(["late", "negative", "review", "returning"])
 
-    key_findings(
-        [
-            f"**Data: a naive join inflates revenue by {grains.iloc[0]['vs. order fact']:.0%}.** Order-level payments "
-            "repeat on every item row; the report uses two fact tables with an explicit grain instead. "
-            "*(Schema, Cleaning & Modeling)*",
-            f"**Delivery drives satisfaction:** late orders average {late['avg_review']:.2f} stars vs. "
-            f"{on_time['avg_review']:.2f}, and are {late['negative_share'] / on_time['negative_share']:.1f}x as likely "
-            "to get a 1–2 star review. *(Delivery & Satisfaction)*",
-            f"**Customers rarely return:** {(freq == 1).mean():.0%} bought only once - retention is the biggest "
-            "untapped lever. *(Customers & Geography)*",
-            f"**Growth has plateaued after a Black Friday peak:** {peak['date']:%d %b %Y} was the busiest day "
-            f"({int(peak['orders']):,} orders); {yoy['year']} is {yoy['orders']:+.0%} YoY but flat month to month. *(Sales)*",
-            f"**Revenue is concentrated:** {n_for_share(cats)} of {len(cats)} categories make 80% of revenue. *(Sales)*",
-        ],
+    st.subheader("The story in one chart")
+    st.plotly_chart(_growth_vs_reliability_fig())
+    takeaway(
+        f"Late deliveries stayed near {monthly.loc[:crisis.index.min()].iloc[:-1]['late'].median():.0%} while volume "
+        f"grew steadily, then spiked to {crisis['late'].max():.0%} when demand peaked. Since then the rate is back "
+        f"to {last3['late'].min():.0%}–{last3['late'].max():.0%}. The system works at normal load and breaks at "
+        "peak load - that is what to fix before November."
     )
-    st.caption(
-        f"Revenue excludes canceled orders and is shown in USD at a fixed rate (see README). Trend charts use "
-        f"{start:%b %Y} – {end:%b %Y}, the months with full data coverage (see *Data Quality*)."
-    )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        with st.container(border=True):
+            st.markdown("#### ✅ What went well")
+            st.markdown(
+                f"- **Growth:** GMV {card.loc['gmv', 'change']:+.0%}, active customers "
+                f"{card.loc['customers', 'change']:+.0%} YoY.\n"
+                f"- **Order value held:** AOV {card.loc['aov', 'change']:+.1%} YoY despite the volume increase.\n"
+                f"- **Fewer cancellations:** {card.loc['cancel', 'current']:.1%} of orders "
+                f"(from {card.loc['cancel', 'prior']:.1%}).\n"
+                f"- **Delivery recovered after March:** late rate {last3['late'].mean():.1%} on average over the last "
+                "3 months.".replace("$", "\\$")
+            )
+    with col2:
+        with st.container(border=True):
+            st.markdown("#### ⚠️ What needs attention")
+            st.markdown(
+                f"- **Late deliveries doubled:** {card.loc['late', 'current']:.1%} vs. target "
+                f"{KPI_BY_KEY['late'].target:.0%}.\n"
+                f"- **Negative reviews up:** {card.loc['negative', 'current']:.1%} of reviews are 1–2 stars "
+                f"(target ≤ {KPI_BY_KEY['negative'].target:.0%}).\n"
+                f"- **Low loyalty:** {card.loc['returning', 'current']:.1%} of orders from returning customers.\n"
+                "- **Concentration risk:** a small group of sellers and categories carries most of the revenue."
+            )
+
+    st.subheader("Recommended actions")
+    for i, r in enumerate(recs[:3], 1):
+        st.markdown(f"{i}. **{r['title']}** ({r['priority']} priority, {r['owner']}) - {r['impact']}".replace("$", "\\$"))
+    st.caption("Full evidence, actions and impact sizing in the *Recommendations* tab.")

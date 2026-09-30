@@ -5,24 +5,22 @@ from src.currency import get_currency
 from src.data_loader import load_geolocation, load_order_level, load_raw
 from src.metrics import orders_per_customer
 from src.quality import BRAZIL_BOUNDS
-from src.theme import BRAND_COLOR, NEUTRAL_GREY, SEQUENTIAL_GREEN, key_findings, section_header, style_fig
+from src.kpis import render_cards
+from src.theme import BRAND_COLOR, NEUTRAL_GREY, SEQUENTIAL_GREEN, key_findings, section_header, style_fig, takeaway
 
 
 def render() -> None:
     section_header(
-        "Who are the customers - do they come back, and where are they?",
-        "Customers identified by customer_unique_id (not the per-order customer_id). Purchase frequency "
-        "distribution, state share of orders and revenue, and a zip-level map from the order fact.",
+        "Who buys from us, do they come back, and where are they?",
+        "Customers counted as people (customer_unique_id), all orders to date. Purchase frequency, share of "
+        "orders and GMV by state, and a map by zip code.",
     )
     symbol, rate = get_currency()
     orders = load_order_level()
     freq = orders_per_customer()
     repeat = freq[freq > 1]
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Unique customers", f"{len(freq):,}")
-    col2.metric("Bought only once", f"{(freq == 1).mean():.1%}")
-    col3.metric("Orders per customer", f"{freq.mean():.2f}")
+    render_cards(["customers", "returning"], per_row=2)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -46,6 +44,12 @@ def render() -> None:
                      color_discrete_map={"orders": BRAND_COLOR, "revenue": "#00893D"})
         fig.update_layout(legend=dict(orientation="h", y=1.08, x=1, xanchor="right"))
         st.plotly_chart(style_fig(fig))
+
+    takeaway(
+        f"{(freq == 1).mean():.0%} of customers have bought from us only once. Our growth depends on continually "
+        f"acquiring new buyers, and 3 states ({', '.join(by_state['customer_state'].head(3))}) make up "
+        f"{by_state['orders'].head(3).sum():.0f}% of orders - outside them we are still a small player."
+    )
 
     st.subheader("Map")
     geo = load_geolocation()
@@ -94,8 +98,8 @@ def render() -> None:
             f"**Demand is concentrated in the south-east:** {top['customer_state']} alone is {top['orders']:.0f}% of "
             f"orders, and the top 3 states ({', '.join(top3['customer_state'])}) are {top3['orders'].sum():.0f}%.",
             f"**Supply is even more concentrated:** {seller_sp:.0%} of sellers are in {top['customer_state']}, which "
-            "explains why distant states see longer and later deliveries (see *Delivery & Satisfaction*).",
+            "explains why distant states see longer and later deliveries (see *Customer Experience*).",
         ],
-        so_what="Retention (second-purchase campaigns) is the largest untapped lever; regional fulfilment "
-        "would help both delivery and reviews outside the south-east.",
+        so_what="Getting more customers to buy a second time is the cheapest growth lever we are not using; "
+        "better delivery outside the south-east would support both growth and reviews there.",
     )
