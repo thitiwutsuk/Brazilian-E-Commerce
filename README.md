@@ -15,7 +15,7 @@ numbers, and recommended actions with sized impact.
 
 ---
 
-| Executive Summary | Appendix: Data Architecture | Customer Experience |
+| Executive Summary | Appendix | Customer Experience |
 |:---:|:---:|:---:|
 | ![Executive Summary](docs/img/preview-summary.png) | ![Data Architecture](docs/img/preview-architecture.png) | ![Customer Experience](docs/img/preview-experience.png) |
 
@@ -26,7 +26,7 @@ numbers, and recommended actions with sized impact.
 - Sales & Growth, Customer Experience, Customers & Markets: KPI cards, charts with a plain-language
   "what this means", and key findings
 - Recommendations: 5 actions with owner, priority, evidence and estimated impact
-- Appendix: KPI definitions & targets; data architecture (data flow from raw CSVs to report, raw
+- Appendix: KPI definitions; data architecture (data flow from raw CSVs to report, raw
   data explorer, ER diagram, table catalog, foreign-key checks); 17 automated data quality checks,
   payment reconciliation and the cleansing log
 - Two fact tables with an explicit grain: order-level (1 row per order) and item-level

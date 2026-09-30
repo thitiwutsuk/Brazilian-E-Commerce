@@ -107,10 +107,10 @@ def run_checks() -> pd.DataFrame:
                "Fall back to the Portuguese name"),
         _check("Referential integrity", "Customer zip prefixes exist in geolocation",
                (~customers["customer_zip_code_prefix"].isin(geo_zips)).sum(), len(customers), 0.01,
-               "Not plotted on the map"),
+               "Kept; location coordinates unavailable"),
         _check("Referential integrity", "Seller zip prefixes exist in geolocation",
                (~sellers["seller_zip_code_prefix"].isin(geo_zips)).sum(), len(sellers), 0.01,
-               "Not plotted on the map"),
+               "Kept; location coordinates unavailable"),
         # Validity
         _check("Validity", "Item price > 0", (items["price"] <= 0).sum(), len(items), 0, "-"),
         _check("Validity", "Payment value > 0", (payments["payment_value"] <= 0).sum(), len(payments), 0.001,
@@ -121,10 +121,10 @@ def run_checks() -> pd.DataFrame:
         _check("Validity", "Geolocation inside Brazil",
                (~geo["geolocation_lat"].between(BRAZIL_BOUNDS["lat_min"], BRAZIL_BOUNDS["lat_max"])
                 | ~geo["geolocation_lng"].between(BRAZIL_BOUNDS["lon_min"], BRAZIL_BOUNDS["lon_max"])).sum(),
-               len(geo), 0.001, "Dropped before mapping"),
+               len(geo), 0.001, "Excluded from location data"),
         # Accuracy
         _check("Accuracy", f"Paid = items + freight (±R${RECON_ABS_TOLERANCE:.0f})", (~recon["within_tolerance"]).sum(),
-               len(recon), RECON_ORDER_TOLERANCE, "Accepted - see reconciliation below"),
+               len(recon), RECON_ORDER_TOLERANCE, "Accepted - mostly installment interest"),
     ]
     return pd.DataFrame(checks)
 

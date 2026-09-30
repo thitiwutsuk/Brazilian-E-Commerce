@@ -4,7 +4,7 @@ import streamlit as st
 from src.currency import fmt_money_short, get_currency
 from src.data_loader import load_order_level
 from src.quality import cleansing_log, grain_comparison
-from src.theme import ACCENT_RED, BRAND_COLOR, key_findings, section_header, style_fig
+from src.theme import ACCENT_RED, BRAND_COLOR, key_findings, style_fig
 
 ORDER_FACT_DICTIONARY = [
     ("order_id", "Primary key - one row per order", "orders"),
@@ -23,76 +23,53 @@ ORDER_FACT_DICTIONARY = [
 
 
 def render() -> None:
-    section_header(
-        "How should the tables be combined so every number adds up?",
-        "Logged row counts before/after each preparation step, then compared revenue computed at three "
-        "different grains against the reconciled payment total.",
-    )
+    grains = grain_comparison()
+    naive, order_fact, item_fact = (grains.iloc[i] for i in range(3))
+    symbol, rate = get_currency()
 
-    st.subheader("Cleansing log")
+    with st.container(border=True):
+        st.markdown(
+            f"**The key catch: a standard join would have overstated revenue by {naive['vs. order fact']:.0%}.** "
+            "One order can contain several items, but the payment is recorded once per order. Joining payments onto "
+            f"items repeats the payment on every item row - {fmt_money_short(naive['Revenue (BRL)'])} instead of "
+            f"{fmt_money_short(order_fact['Revenue (BRL)'])}.".replace("$", "\\$")
+        )
+
+    fig = px.bar(
+        grains.assign(Method=["Standard join (wrong)", "Order level (used for totals)", "Item level (used for categories)"],
+                      Revenue=grains["Revenue (BRL)"] / rate),
+        x="Revenue", y="Method", orientation="h", title="Total revenue by calculation method",
+        labels={"Revenue": f"Revenue ({symbol})", "Method": ""},
+        text=grains["Revenue (BRL)"].map(fmt_money_short),
+    )
+    fig.update_traces(marker_color=[ACCENT_RED, BRAND_COLOR, BRAND_COLOR], textposition="inside")
+    fig.update_layout(yaxis={"autorange": "reversed"}, height=300)
+    st.plotly_chart(style_fig(fig))
+
+    st.subheader("What was done to the raw data")
     log = cleansing_log()
     st.dataframe(
-        log,
+        log[["Table", "Step", "Rows before", "Rows after"]],
         width="stretch",
         hide_index=True,
-        column_config={c: st.column_config.NumberColumn(format="localized") for c in ["Rows before", "Rows after", "Change"]},
+        column_config={c: st.column_config.NumberColumn(format="localized") for c in ["Rows before", "Rows after"]},
     )
 
-    st.subheader("Grain check: which join gives the right revenue?")
-    grains = grain_comparison()
-    symbol, rate = get_currency()
-    grains["Revenue"] = grains["Revenue (BRL)"] / rate
-    col1, col2 = st.columns([3, 2])
-    with col1:
+    with st.expander("Data dictionary - order-level table"):
+        orders = load_order_level()
+        st.caption(f"{orders.shape[0]:,} rows × {orders.shape[1]} columns; key columns shown.")
         st.dataframe(
-            grains.drop(columns=["Revenue (BRL)"]),
+            [dict(Column=c, Definition=d, Source=s) for c, d, s in ORDER_FACT_DICTIONARY],
             width="stretch",
             hide_index=True,
-            column_config={
-                "Rows": st.column_config.NumberColumn(format="localized"),
-                "Revenue": st.column_config.NumberColumn(f"Revenue ({symbol})", format="dollar"),
-                "vs. order fact": st.column_config.NumberColumn(format="percent"),
-            },
         )
-    with col2:
-        fig = px.bar(grains.assign(Method=["Naive join", "Order fact", "Item fact"]), x="Revenue", y="Method",
-                     orientation="h", title="Total revenue by method",
-                     labels={"Revenue": f"Revenue ({symbol})", "Method": ""},
-                     text=grains["Revenue (BRL)"].map(fmt_money_short))
-        fig.update_traces(marker_color=[ACCENT_RED, BRAND_COLOR, BRAND_COLOR], textposition="inside")
-        fig.update_layout(yaxis={"autorange": "reversed"})
-        st.plotly_chart(style_fig(fig))
 
-    st.subheader("Analysis-ready model")
-    st.markdown(
-        "- **Order fact** (`load_order_level`) - grain: 1 row per order. Used for revenue totals, AOV, delivery, "
-        "reviews and customers.\n"
-        "- **Item fact** (`load_item_level`) - grain: 1 row per order item, revenue = price + freight. Used for "
-        "category and seller breakdowns."
-    )
-    orders = load_order_level()
-    st.caption(f"Order fact data dictionary ({orders.shape[0]:,} rows × {orders.shape[1]} columns, key columns shown):")
-    st.dataframe(
-        [dict(Column=c, Definition=d, Source=s) for c, d, s in ORDER_FACT_DICTIONARY],
-        width="stretch",
-        hide_index=True,
-    )
-
-    naive, order_fact, item_fact = (grains.iloc[i] for i in range(3))
     log = log.set_index("Step")
     key_findings(
         [
-            f"**The naive join overstates revenue by {naive['vs. order fact']:.1%}** ({fmt_money_short(naive['Revenue (BRL)'])} vs. "
-            f"{fmt_money_short(order_fact['Revenue (BRL)'])}). `payment_value` is per order, but joining items first repeats it on "
-            f"every item row ({naive['Rows']:,} rows for {order_fact['Rows']:,} orders). Every revenue chart built on it was inflated.",
-            f"**Fix: two fact tables with an explicit grain.** Payments and items are aggregated to the order *before* "
-            f"joining; the order fact is asserted to keep exactly {order_fact['Rows']:,} unique orders.",
-            f"**Item-level revenue (price + freight) lands {abs(item_fact['vs. order fact']):.1%} below payments** - the same gap "
-            "seen in reconciliation (installment interest, plus paid orders that never had items). It is the correct "
-            "base for category and seller splits, whose parts then sum to a known total.",
-            f"**Preparation removes little real data:** dedup drops {-log.iloc[0]['Change']:,} duplicate reviews, "
-            f"and only {-log.loc[log.index.str.startswith('Keep delivered'), 'Change'].iloc[0]:,} undelivered orders "
-            "are left out of delivery analysis - nothing is dropped from revenue totals.",
+            f"**Revenue in this report is correct:** totals use one row per order ({order_fact['Rows']:,} orders), "
+            "category and seller splits use one row per item, and the build stops if an order is ever duplicated.",
+            f"**Cleaning removed duplicates, not sales:** {-log.iloc[0]['Change']:,} duplicate reviews were dropped; "
+            "no order is removed from revenue totals.",
         ],
-        so_what="All revenue in this report comes from the order fact or the item fact - never the naive join.",
     )

@@ -19,7 +19,7 @@ SECTIONS = [
     ("Customer Experience", delivery),
     ("Customers & Markets", customers),
     ("Recommendations", recommendations),
-    ("Appendix: Data & Methodology", appendix),
+    ("Appendix", appendix),
 ]
 
 for tab, (_, section) in zip(st.tabs([name for name, _ in SECTIONS]), SECTIONS):
