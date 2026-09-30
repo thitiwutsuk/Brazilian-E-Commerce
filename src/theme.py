@@ -45,3 +45,21 @@ def style_fig(fig):
     fig.update_traces(textfont_size=14, textfont_color=INK, selector=dict(type="bar"))
     fig.update_traces(line_width=3, selector=dict(type="scatter", mode="lines+markers"))
     return fig
+
+
+def section_header(question: str, method: str) -> None:
+    """Opening of every report tab: the question it answers and how."""
+    st.markdown(f"**Question.** {question}")
+    st.caption(f"Method: {method}")
+
+
+def key_findings(findings: list, so_what: str = "") -> None:
+    """Closing box of every report tab: numbered findings + the implication."""
+    # Escape "$" so two money amounts in one line aren't rendered as LaTeX math.
+    findings = [f.replace("$", "\\$") for f in findings]
+    so_what = so_what.replace("$", "\\$")
+    with st.container(border=True):
+        st.markdown("#### Key findings")
+        st.markdown("\n".join(f"{i}. {f}" for i, f in enumerate(findings, 1)))
+        if so_what:
+            st.markdown(f"**So what:** {so_what}")

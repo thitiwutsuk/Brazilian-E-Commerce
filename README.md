@@ -6,23 +6,28 @@
 ![Pandas](https://img.shields.io/badge/Pandas-2.0+-150458?style=flat-square&logo=pandas&logoColor=white)
 ![Progress](https://img.shields.io/badge/Progress-deployed-brightgreen?style=flat-square)
 
-An interactive Streamlit dashboard analyzing ~99K real orders from Olist, a Brazilian marketplace
-(2016-2018). Joins 9 relational CSV files into one denormalized table and surfaces it across 5
-tabs covering sales, delivery performance, reviews, and geographic revenue.
+An analytical report in Streamlit on ~99K real orders from Olist, a Brazilian marketplace
+(2016-2018). The tabs follow the analysis step by step (schema, data quality, cleaning &
+modeling, sales, delivery & satisfaction, customers), and each tab ends with key findings
+computed from the data.
 
 ## Preview
 
 ---
 
-| Overview | Sales Overview | Delivery Performance |
+| Data Schema | Sales | Delivery & Satisfaction |
 |:---:|:---:|:---:|
-| ![Overview](docs/img/preview-overview.png) | ![Sales Overview](docs/img/preview-sales-overview.png) | ![Delivery Performance](docs/img/preview-delivery-performance.png) |
+| ![Data Schema](docs/img/preview-schema.png) | ![Sales](docs/img/preview-sales.png) | ![Delivery & Satisfaction](docs/img/preview-delivery.png) |
 
 ## Features
 
-- 5-tab dashboard: Overview, Sales Overview, Delivery Performance, Reviews, Geo Map
-- Data pipeline joining 9 CSVs (order, customer, item, payment, review, product, and geolocation
-  data) into a cached, denormalized order-level table
+- Report tabs: Summary, Data Schema, Data Quality, Cleaning & Modeling, Sales, Delivery &
+  Satisfaction, Customers & Geography. Each tab states its question and method, shows the
+  evidence, and ends with key findings and a "so what"
+- Data Schema: ER diagram, table catalog (grain, PK) and measured foreign-key match rates
+- Data Quality: 17 automated checks (PASS/WARN/FAIL), monthly coverage and payment reconciliation
+- Two fact tables with an explicit grain: order-level (1 row per order) and item-level
+  (1 row per order item)
 - Fixed USD display conversion and a shared Plotly chart-styling system for a consistent look
 - Deployed on Streamlit Community Cloud
 
@@ -30,11 +35,15 @@ tabs covering sales, delivery performance, reviews, and geographic revenue.
 
 ```
 Brazilian E-Commerce/
-├── app.py                    # Entry point: Overview + Sales/Delivery/Reviews/Geo Map tabs
+├── app.py                    # Entry point: builds the report tabs
 ├── src/
-│   ├── data_loader.py        # Cached loaders for each CSV + the joined order-level table
+│   ├── data_loader.py        # Cached loaders for each CSV + order-level and item-level fact tables
+│   ├── schema.py             # Table/key metadata, FK match rates, ER diagram (Graphviz DOT)
+│   ├── quality.py            # Data quality checks, reconciliation, cleansing log
+│   ├── metrics.py            # Shared metrics used by the tabs and the summary
+│   ├── sections/             # One module per report tab
 │   ├── currency.py           # Fixed BRL→USD display conversion
-│   └── theme.py           # Brand color palette + shared Plotly chart styling
+│   └── theme.py              # Brand color palette, Plotly styling, findings box
 ├── data/                     # Raw Olist CSVs
 ├── docs/                     # Reusable Streamlit theming notes
 ├── .streamlit/config.toml    # Theme
@@ -57,11 +66,13 @@ streamlit run app.py
 
 ## Engineering Highlights
 
-- Built the join/ETL pipeline into a 113K-row denormalized table and fixed 4 data-integrity bugs
-  along the way, including a silent date-parsing failure and a category-mapping gap that was
-  dropping revenue from every category chart.
-- Found that delivery delay tightens from -5.9 to -13.4 days as review scores rise from 1 to 5
-  stars, using a diverging color scale to make the trend readable at a glance.
+- Found that joining order-level payments onto order items inflated revenue by 28%. Rebuilt the
+  model as two fact tables with an explicit grain, with an assertion that the order table
+  cannot fan out.
+- Reconciled payments against items + freight: totals differ by 0.02%, and only 0.25% of orders
+  are off by more than R$1.
+- Showed that late orders are 6.7x as likely to get a 1-2 star review (62% vs. 9%), and that
+  negative reviews rise steadily with the size of the delay.
 - Redesigned every chart against a systematic color methodology instead of default styling,
   catching a map silently centered on Africa and a Plotly title bug in the process.
 - Migrated the UI from a multi-page app to a single-page tabbed layout and verified every release

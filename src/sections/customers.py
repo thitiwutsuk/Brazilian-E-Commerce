@@ -1,0 +1,101 @@
+import plotly.express as px
+import streamlit as st
+
+from src.currency import get_currency
+from src.data_loader import load_geolocation, load_order_level, load_raw
+from src.metrics import orders_per_customer
+from src.quality import BRAZIL_BOUNDS
+from src.theme import BRAND_COLOR, NEUTRAL_GREY, SEQUENTIAL_GREEN, key_findings, section_header, style_fig
+
+
+def render() -> None:
+    section_header(
+        "Who are the customers - do they come back, and where are they?",
+        "Customers identified by customer_unique_id (not the per-order customer_id). Purchase frequency "
+        "distribution, state share of orders and revenue, and a zip-level map from the order fact.",
+    )
+    symbol, rate = get_currency()
+    orders = load_order_level()
+    freq = orders_per_customer()
+    repeat = freq[freq > 1]
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Unique customers", f"{len(freq):,}")
+    col2.metric("Bought only once", f"{(freq == 1).mean():.1%}")
+    col3.metric("Orders per customer", f"{freq.mean():.2f}")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        buckets = freq.clip(upper=4).value_counts().sort_index()
+        dist = buckets.rename(index={4: "4+"}).rename_axis("orders").reset_index(name="customers")
+        dist["orders"] = dist["orders"].astype(str)
+        dist["pct"] = dist["customers"] / dist["customers"].sum() * 100
+        fig = px.bar(dist, x="orders", y="customers", title="Customers by number of orders",
+                     labels={"orders": "Orders per customer", "customers": "Customers"},
+                     text=dist["pct"].map(lambda v: f"{v:.1f}%"))
+        fig.update_traces(marker_color=[BRAND_COLOR] + [NEUTRAL_GREY] * (len(dist) - 1), textposition="outside")
+        fig.update_yaxes(range=[0, dist["customers"].max() * 1.15])
+        st.plotly_chart(style_fig(fig))
+    with col2:
+        by_state = orders.groupby("customer_state").agg(orders=("order_id", "size"), revenue=("payment_value", "sum"))
+        by_state = (by_state / by_state.sum() * 100).sort_values("orders", ascending=False).head(8).reset_index()
+        long = by_state.melt(id_vars="customer_state", var_name="measure", value_name="pct")
+        fig = px.bar(long, x="customer_state", y="pct", color="measure", barmode="group",
+                     title="Share of orders and revenue - top 8 states",
+                     labels={"customer_state": "", "pct": "Share (%)", "measure": ""},
+                     color_discrete_map={"orders": BRAND_COLOR, "revenue": "#00893D"})
+        fig.update_layout(legend=dict(orientation="h", y=1.08, x=1, xanchor="right"))
+        st.plotly_chart(style_fig(fig))
+
+    st.subheader("Map")
+    geo = load_geolocation()
+    by_zip = orders.groupby("customer_zip_code_prefix", as_index=False).agg(
+        orders=("order_id", "size"), revenue=("payment_value", "sum"), state=("customer_state", "first")
+    )
+    by_zip["revenue"] = by_zip["revenue"] / rate
+    by_zip = by_zip.merge(geo, left_on="customer_zip_code_prefix", right_on="geolocation_zip_code_prefix", how="inner")
+    # A few zip prefixes are geocoded outside Brazil (one lands in Portugal) and
+    # would force the map to zoom out to another continent.
+    by_zip = by_zip[
+        by_zip["geolocation_lat"].between(BRAZIL_BOUNDS["lat_min"], BRAZIL_BOUNDS["lat_max"])
+        & by_zip["geolocation_lng"].between(BRAZIL_BOUNDS["lon_min"], BRAZIL_BOUNDS["lon_max"])
+    ]
+    fig_geo = px.scatter_map(
+        by_zip,
+        lat="geolocation_lat",
+        lon="geolocation_lng",
+        size="orders",
+        color="revenue",
+        color_continuous_scale=SEQUENTIAL_GREEN,
+        # Revenue per zip is heavily right-skewed; cap the colour domain at the
+        # 95th percentile so the bulk of the map is not rendered near-white.
+        range_color=[0, by_zip["revenue"].quantile(0.95)],
+        hover_name="customer_zip_code_prefix",
+        hover_data={"state": True, "orders": True, "revenue": ":,.0f", "geolocation_lat": False, "geolocation_lng": False},
+        labels={"revenue": f"Revenue ({symbol})", "orders": "Orders"},
+        center={"lat": -14.2, "lon": -51.9},
+        zoom=3.2,
+        height=600,
+        map_style="open-street-map",
+    )
+    st.plotly_chart(style_fig(fig_geo))
+    st.caption(f"{len(by_zip):,} zip prefixes. Bubble size = orders, colour = revenue (capped at the 95th percentile).")
+
+    sellers = load_raw("sellers")
+    top = by_state.iloc[0]
+    top3 = by_state.head(3)
+    seller_sp = (sellers["seller_state"] == top["customer_state"]).mean()
+    key_findings(
+        [
+            f"**Almost nobody comes back:** {(freq == 1).mean():.1%} of {len(freq):,} customers ordered once; only "
+            f"{len(repeat):,} placed a second order. Growth has come from acquisition, not retention.",
+            f"**Repeat customers are a small base with room to grow** - they average {repeat.mean():.1f} orders "
+            f"each; every +1 point of repeat rate is about {len(freq) * 0.01:,.0f} extra customers buying again.",
+            f"**Demand is concentrated in the south-east:** {top['customer_state']} alone is {top['orders']:.0f}% of "
+            f"orders, and the top 3 states ({', '.join(top3['customer_state'])}) are {top3['orders'].sum():.0f}%.",
+            f"**Supply is even more concentrated:** {seller_sp:.0%} of sellers are in {top['customer_state']}, which "
+            "explains why distant states see longer and later deliveries (see *Delivery & Satisfaction*).",
+        ],
+        so_what="Retention (second-purchase campaigns) is the largest untapped lever; regional fulfilment "
+        "would help both delivery and reviews outside the south-east.",
+    )
