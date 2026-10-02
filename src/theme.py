@@ -52,23 +52,16 @@ def section_header(question: str) -> None:
     st.markdown(f"#### {question}")
 
 
-FINDINGS_LABELS = {
-    "en": ("Key findings", "What this means for us"),
-    "th": ("ข้อค้นพบสำคัญ", "สิ่งที่ควรทำ"),
-}
-
-
-def key_findings(findings: list, so_what: str = "", lang: str = "en") -> None:
+def key_findings(findings: list, so_what: str = "") -> None:
     """Closing box of every report tab: numbered findings + the implication."""
-    heading, so_what_label = FINDINGS_LABELS[lang]
     # Escape "$" so two money amounts in one line aren't rendered as LaTeX math.
     findings = [f.replace("$", "\\$") for f in findings]
     so_what = so_what.replace("$", "\\$")
     with st.container(border=True):
-        st.markdown(f"#### {heading}")
+        st.markdown("#### Key findings")
         st.markdown("\n".join(f"{i}. {f}" for i, f in enumerate(findings, 1)))
         if so_what:
-            st.markdown(f"**{so_what_label}:** {so_what}")
+            st.markdown(f"**What this means for us:** {so_what}")
 
 
 STATUS_STYLE = {
@@ -78,25 +71,22 @@ STATUS_STYLE = {
 }
 
 
-STATUS_TH = {"On track": "ตามเป้า", "Watch": "เฝ้าระวัง", "Off track": "ต่ำกว่าเป้า"}
-
-
 def status_badge(status: str) -> str:
     bg, fg = STATUS_STYLE[status]
     return (f'<span style="background:{bg};color:{fg};padding:2px 8px;border-radius:10px;'
-            f'font-size:0.8rem;font-weight:600;white-space:nowrap">{STATUS_TH[status]}</span>')
+            f'font-size:0.8rem;font-weight:600;white-space:nowrap">{status}</span>')
 
 
 def kpi_card(label, value, delta, higher_is_better, status, target, meaning, help) -> None:
     with st.container(border=True):
         st.metric(label, value, delta, delta_color="normal" if higher_is_better else "inverse", help=help)
         st.markdown(
-            f'{status_badge(status)} <span style="color:{NEUTRAL_GREY};font-size:0.8rem">เป้า {target}</span>',
+            f'{status_badge(status)} <span style="color:{NEUTRAL_GREY};font-size:0.8rem">Target {target}</span>',
             unsafe_allow_html=True,
         )
         st.caption(meaning)
 
 
-def takeaway(text: str, label: str = "ข้อสังเกต") -> None:
+def takeaway(text: str, label: str = "What this means") -> None:
     """One-line "what this means" under a chart, in plain business language."""
     st.markdown(f"**{label}:** {text.replace('$', chr(92) + '$')}")

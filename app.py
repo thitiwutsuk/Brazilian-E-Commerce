@@ -5,20 +5,20 @@ from src.kpis import reporting_periods
 from src.sections import appendix, customers, delivery, recommendations, sales, summary
 from src.theme import configure_page
 
-configure_page("รายงานผลการดำเนินงาน Olist")
-st.title("รายงานผลการดำเนินงาน Olist Marketplace")
-st.caption(f"สรุปผลการดำเนินงาน {reporting_periods()['label']}")
+configure_page("Olist Marketplace Performance Report")
+st.title("Olist Marketplace Performance Report")
+st.caption(f"Business review {reporting_periods()['label']}")
 
 # Warm the cache once so every tab reads the same prepared tables.
 load_order_level()
 load_item_level()
 
 SECTIONS = [
-    ("สรุปผู้บริหาร", summary),
-    ("ยอดขายและการเติบโต", sales),
-    ("ประสบการณ์ลูกค้า", delivery),
-    ("ข้อเสนอแนะ", recommendations),
-    ("ลูกค้าและตลาด", customers),
+    ("Executive Summary", summary),
+    ("Sales & Growth", sales),
+    ("Customer Experience", delivery),
+    ("Recommendations", recommendations),
+    ("Customers & Markets", customers),
     ("Appendix", appendix),
 ]
 

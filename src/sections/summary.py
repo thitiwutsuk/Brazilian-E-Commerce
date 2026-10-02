@@ -10,15 +10,15 @@ def _growth_vs_reliability_fig():
     m = monthly_kpis()
     late_target = KPI_BY_KEY["late"].target
     fig = go.Figure()
-    fig.add_bar(x=m["month"], y=m["orders"], name="จำนวน order", marker_color=GRID_GREY, marker_line_width=0)
-    fig.add_scatter(x=m["month"], y=m["late"] * 100, name="อัตราส่งช้า (%)", yaxis="y2",
+    fig.add_bar(x=m["month"], y=m["orders"], name="Orders", marker_color=GRID_GREY, marker_line_width=0)
+    fig.add_scatter(x=m["month"], y=m["late"] * 100, name="Late delivery rate (%)", yaxis="y2",
                     mode="lines+markers", line=dict(color=ACCENT_RED, width=3))
-    fig.add_scatter(x=m["month"], y=[late_target * 100] * len(m), name=f"เป้าอัตราส่งช้า ({late_target:.0%})",
+    fig.add_scatter(x=m["month"], y=[late_target * 100] * len(m), name=f"Late-rate target ({late_target:.0%})",
                     yaxis="y2", mode="lines", line=dict(color=INK, dash="dot", width=1))
     fig.update_layout(
-        title="จำนวน order เทียบกับอัตราส่งช้า รายเดือน",
-        yaxis=dict(title="จำนวน order", showgrid=False),
-        yaxis2=dict(title="อัตราส่งช้า (%)", overlaying="y", side="right", rangemode="tozero", showgrid=True,
+        title="Monthly orders vs. late delivery rate",
+        yaxis=dict(title="Orders", showgrid=False),
+        yaxis2=dict(title="Late deliveries (%)", overlaying="y", side="right", rangemode="tozero", showgrid=True,
                     gridcolor=GRID_GREY),
         legend=dict(orientation="h", y=1.1, x=1, xanchor="right"),
         hovermode="x unified",
@@ -34,29 +34,30 @@ def render() -> None:
     last3 = monthly.tail(3)
 
     with st.container(border=True):
-        st.markdown("#### บริบทและคำถามหลัก")
+        st.markdown("#### Business Context & Key Questions")
         st.markdown(
-            "Olist โตเร็วมากในปี 2017–2018 คำถามสำคัญคือ **การเติบโตนี้แข็งแรงหรือไม่** "
-            f"และอีก 3 เดือนจะถึง Black Friday {periods['as_of'].year} ซึ่งเป็นช่วงขายดีที่สุดของปี "
-            "รายงานนี้จึงตอบ 3 คำถาม:"
+            "Olist grew very fast through 2017–2018. Fast growth raises a question management needs answered: "
+            f"**is the growth healthy?** With Black Friday {periods['as_of'].year} three months away - our busiest "
+            "period of the year - this review answers three questions:"
         )
-        where = {1: "ยอดขายและการเติบโต, ลูกค้าและตลาด", 2: "ประสบการณ์ลูกค้า", 3: "ข้อเสนอแนะ"}
+        where = {1: "Sales & Growth, Customers & Markets", 2: "Customer Experience", 3: "Recommendations"}
         st.markdown("\n".join(f"{n}. **{q}** *(→ {where[n]})*" for n, q in QUESTIONS.items()))
 
-    st.subheader(f"สรุปผลตาม KPI · {periods['label']} เทียบ {periods['prior_label']}")
-    st.caption("ชี้ที่ ⓘ เพื่อดูคำนิยามของแต่ละ KPI · เป้าหมายเป็นค่าที่เสนอ ไม่ใช่เป้าทางการ")
-    st.markdown("**การเติบโต**")
+    st.subheader(f"Performance Scorecard · {periods['label']} vs. {periods['prior_label']}")
+    st.caption("Hover the ⓘ for each KPI's definition. "
+               "Targets are proposed, not official (see Appendix).")
+    st.markdown("**Growth Metrics**")
     render_cards(["gmv", "orders", "aov", "customers"])
-    st.markdown("**ประสบการณ์ลูกค้า**")
+    st.markdown("**Customer Experience Metrics**")
     render_cards(["late", "negative", "review", "returning"])
 
-    st.subheader("ข้อค้นพบหลัก: การจัดส่งรับช่วงพีคไม่ไหว")
+    st.subheader("Key Insight: Delivery Reliability Breaks at Peak Demand")
     st.plotly_chart(_growth_vs_reliability_fig())
     normal = monthly.loc[monthly.index < crisis.index.min(), "late"].median()
     takeaway(
-        f"เดือนปกติส่งช้าราว {normal:.0%} แต่ช่วงยอดพีคพุ่งเป็น "
-        f"{', '.join(f'{r.late:.0%} ({m:%b %Y})' for m, r in crisis.iterrows())} "
-        f"ตอนนี้กลับมาเฉลี่ย {last3['late'].mean():.1%} ใน 3 เดือนล่าสุด "
-        "ระบบรับยอดปกติได้ แต่รับช่วงพีคไม่ไหว ต้องแก้ก่อนเดือนพฤศจิกายน",
-        label="ความหมายต่อธุรกิจ",
+        f"In normal months about {normal:.0%} of orders arrive late. When demand peaked, the late rate jumped to "
+        f"{', '.join(f'{r.late:.0%} ({m:%b %Y})' for m, r in crisis.iterrows())}. It has since recovered to "
+        f"{last3['late'].mean():.1%} on average over the last 3 months. The system works at normal load but breaks at "
+        "peak load - that is what to fix before November.",
+        label="Business implication",
     )

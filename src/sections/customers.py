@@ -14,10 +14,10 @@ TOP_STATES = 8
 def _loyalty_fig(freq: pd.Series):
     dist = freq.clip(upper=4).value_counts().sort_index().rename(index={4: "4+"})
     dist = dist.rename_axis("orders").reset_index(name="customers")
-    dist["orders"] = dist["orders"].astype(str).map(lambda n: f"ซื้อ {n} ครั้ง")
+    dist["orders"] = dist["orders"].astype(str).map(lambda n: f"{n} order" + ("" if n == "1" else "s"))
     dist["pct"] = dist["customers"] / dist["customers"].sum() * 100
-    fig = px.bar(dist, x="orders", y="pct", title="ลูกค้าแบ่งตามจำนวนครั้งที่ซื้อ",
-                 labels={"orders": "", "pct": "% ของลูกค้า"}, text=dist["pct"].map(lambda v: f"{v:.1f}%"))
+    fig = px.bar(dist, x="orders", y="pct", title="Customers by number of orders placed",
+                 labels={"orders": "", "pct": "% of customers"}, text=dist["pct"].map(lambda v: f"{v:.1f}%"))
     fig.update_traces(marker_color=[BRAND_COLOR] + [NEUTRAL_GREY] * (len(dist) - 1), textposition="outside")
     fig.update_yaxes(range=[0, 110])
     return style_fig(fig)
@@ -25,15 +25,15 @@ def _loyalty_fig(freq: pd.Series):
 
 def _state_fig(share: pd.Series, label: str):
     top = share.head(TOP_STATES).iloc[::-1] * 100
-    fig = px.bar(x=top.values, y=top.index, orientation="h", title=f"สัดส่วน order ราย state ({TOP_STATES} อันดับแรก, {label})",
-                 labels={"x": "สัดส่วน order (%)", "y": ""}, text=[f"{v:.0f}%" for v in top.values])
+    fig = px.bar(x=top.values, y=top.index, orientation="h", title=f"Share of orders by state - top {TOP_STATES}, {label}",
+                 labels={"x": "Share of orders (%)", "y": ""}, text=[f"{v:.0f}%" for v in top.values])
     fig.update_traces(marker_color=[NEUTRAL_GREY] * (len(top) - 3) + [BRAND_COLOR] * 3, textposition="outside")
     fig.update_layout(xaxis_range=[0, top.max() * 1.2])
     return style_fig(fig)
 
 
 def render() -> None:
-    section_header(f"{question_label(1, 2)} · ลูกค้าของเราเป็นใคร และอยู่ที่ไหน?")
+    section_header(f"{question_label(1, 2)} · Who are our customers, and where are they?")
     periods = reporting_periods()
     card = scorecard()
     freq = orders_per_customer()
@@ -43,31 +43,31 @@ def render() -> None:
     sellers = load_raw("sellers")
     seller_share = (sellers["seller_state"] == share.index[0]).mean()
 
-    st.subheader("1. ภาพรวมลูกค้า")
+    st.subheader("1. Customers at a Glance")
     render_cards(["customers", "returning"], per_row=2)
-    takeaway(f"ฐานลูกค้าโต {card.loc['customers', 'change']:+.0%} แต่เกือบทั้งหมดเป็นลูกค้าที่ซื้อครั้งแรก")
+    takeaway(f"The customer base grew {card.loc['customers', 'change']:+.0%}, but almost all of it is first-time buyers.",
+             label="Insight")
 
-    st.subheader("2. การกลับมาซื้อซ้ำ")
+    st.subheader("2. Customer Loyalty")
     st.plotly_chart(_loyalty_fig(freq))
-    takeaway(f"ลูกค้า {(freq == 1).mean():.0%} ซื้อแค่ครั้งเดียว")
+    takeaway(f"{(freq == 1).mean():.0%} of customers have ordered only once.", label="Insight")
 
-    st.subheader("3. ลูกค้ากระจุกตัวที่ไหน")
+    st.subheader("3. Market Concentration")
     col1, col2 = st.columns([3, 1])
     with col1:
         st.plotly_chart(_state_fig(share, periods["label"]))
     with col2:
         with st.container(border=True):
-            st.metric(f"order จาก {', '.join(top3.index)}", f"{top3.sum():.0%}")
+            st.metric(f"Orders from {', '.join(top3.index)}", f"{top3.sum():.0%}")
         with st.container(border=True):
-            st.metric(f"seller ที่อยู่ใน {share.index[0]}", f"{seller_share:.0%}")
+            st.metric(f"Sellers based in {share.index[0]}", f"{seller_share:.0%}")
 
     key_findings(
         [
-            f"**โตจากลูกค้าใหม่:** ลูกค้า {(freq == 1).mean():.0%} ซื้อครั้งเดียว และ order จากลูกค้าเก่ามีแค่ "
-            f"{card.loc['returning', 'current']:.1%}",
-            f"**ลูกค้ากระจุกตัว:** {', '.join(top3.index)} รวมกันเป็น {top3.sum():.0%} ของ order",
-            f"**seller ก็กระจุกตัว:** seller {seller_share:.0%} อยู่ใน {share.index[0]} ไกลจากลูกค้าหลายพื้นที่",
+            f"**Acquisition-led growth:** {(freq == 1).mean():.0%} of customers bought once; only "
+            f"{card.loc['returning', 'current']:.1%} of orders come from returning customers.",
+            f"**Demand is concentrated:** {', '.join(top3.index)} make up {top3.sum():.0%} of orders.",
+            f"**Supply is concentrated too:** {seller_share:.0%} of sellers are in {share.index[0]}, far from many customers.",
         ],
-        so_what="กระตุ้นให้ลูกค้ากลับมาซื้อซ้ำ และขยายการเข้าถึงและการจัดส่งนอกภาคตะวันออกเฉียงใต้",
-        lang="th",
+        so_what="Win second purchases, and improve reach and delivery outside the south-east.",
     )
