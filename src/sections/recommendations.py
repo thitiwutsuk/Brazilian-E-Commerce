@@ -8,6 +8,14 @@ from src.story import QUESTIONS, question_label
 from src.theme import section_header
 
 MIN_STATE_ORDERS = 300
+# Plain-English names for categories that appear in the recommendations.
+CATEGORY_LABELS = {
+    "fashion_bags_accessories": "bags & accessories",
+    "bed_bath_table": "bed & bath",
+    "furniture_decor": "home décor",
+    "sports_leisure": "sports",
+    "health_beauty": "health & beauty",
+}
 # (background, accent) per priority - red = act now, amber = next, blue = test and learn.
 PRIORITY_STYLE = {
     "High": ("#FDECEC", "#B42318"),
@@ -60,13 +68,15 @@ def recommendations() -> list:
     return [
         dict(
             priority="High", owner="Logistics & Operations",
-            title=f"Add peak-season capacity for Black Friday {periods['as_of'].year}",
+            title=f"Get ready for Black Friday {periods['as_of'].year}",
             evidence=(f"Late rate jumped to {peak['late']:.0%} in {peak_month:%b %Y} (Black Friday) and went above "
                       f"{2 * late_target:.0%} again in {', '.join(f'{m:%b %Y}' for m in crisis.index)}. Those months drove "
                       f"the YoY rise in late deliveries ({card.loc['late', 'prior']:.1%} → {card.loc['late', 'current']:.1%})."),
-            action=(f"Short-term, all regions, Nov–Dec only: book extra carrier and seller-dispatch capacity for "
-                    f"~{peak_2018:,.0f} orders in the peak month, add buffer days to promised dates while volume is "
-                    "high, and track the late rate weekly from 1 Nov."),
+            action=[
+                f"Book extra delivery capacity for about {round(peak_2018, -3):,.0f} orders in November",
+                "Give customers a few extra days on the promised delivery date during the peak",
+                "Check the late-delivery rate every week from 1 November",
+            ],
             impact=(f"At ~{peak_2018:,.0f} orders expected in the peak month, holding the late rate at "
                     f"{late_target:.0%} instead of {peak['late']:.0%} avoids ~{avoided_peak:,.0f} late orders and "
                     f"~{avoided_peak * neg_uplift:,.0f} negative reviews."),
@@ -74,24 +84,31 @@ def recommendations() -> list:
         ),
         dict(
             priority="Medium", owner="Logistics & Operations",
-            title="Fix year-round delivery to the worst-served states",
+            title=f"Fix slow delivery in {len(worst)} far-away states",
             evidence=(f"{', '.join(worst.index)} run at {worst['late'].min():.0%}–{worst['late'].max():.0%} late vs. "
                       f"{national:.1%} nationally in {periods['label']}; most sellers ship from the south-east."),
-            action=(f"Long-term, structural: {', '.join(worst.index)} run {off_peak_states:.0%} late even outside peak "
-                    f"months (vs. {off_peak_national:.0%} nationally) because most sellers ship from the south-east. "
-                    "Bring supply closer: open a regional fulfilment hub or recruit local sellers in these states."),
+            action=[
+                f"{', '.join(worst.index[:-1])} and {worst.index[-1]} get late orders {off_peak_states:.0%} of the "
+                f"time, even in normal months (vs. {off_peak_national:.0%} nationally)",
+                "The cause: most sellers are far away, in the south-east",
+                "Open a local warehouse or bring in sellers based in these states",
+            ],
             impact=(f"Bringing these 5 states to the national rate avoids ~{avoided_regional:,.0f} late orders and "
                     f"~{avoided_regional * neg_uplift:,.0f} negative reviews per year."),
             kpi="Late delivery rate by state",
         ),
         dict(
             priority="Low", owner="CRM & Marketing",
-            title="Pilot a second-purchase program in repeat-friendly categories",
+            title="Test ways to bring customers back",
             evidence=(f"Only {overall_repeat:.0%} of first-time buyers order again within {REPEAT_WINDOW_DAYS} days - "
                       "even after an on-time, 5-star experience. Repeat is highest in "
                       f"{', '.join(f'{c} ({v:.0%})' for c, v in best['repeat'].items())}."),
-            action=(f"Test a second-order voucher with first-time buyers in {', '.join(best.index)} - the categories "
-                    "where customers already return most - against a control group before any wider rollout."),
+            action=[
+                f"Only {overall_repeat:.0%} of customers buy again within 6 months",
+                "Start where customers already come back most: "
+                f"{', '.join(CATEGORY_LABELS.get(c, c.replace('_', ' ')) for c in best.index)}",
+                "Send a second-order voucher to a test group and compare with customers who don't get one",
+            ],
             impact=(f"Shows whether retention can be moved at all; doubling repeat in these categories would add "
                     f"~{extra_returning:,.0f} returning customers per year."),
             kpi="Orders from returning customers",
@@ -119,4 +136,4 @@ def render() -> None:
                 unsafe_allow_html=True,
             )
             st.markdown(f"#### {r['title']}")
-            st.markdown(r["action"].replace("$", "\\$"))
+            st.markdown("\n".join(f"- {line}" for line in r["action"]).replace("$", "\\$"))
