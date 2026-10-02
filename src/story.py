@@ -6,9 +6,9 @@ import pandas as pd
 from src.kpis import KPI_BY_KEY, monthly_kpis
 
 QUESTIONS = {
-    1: "Are we really growing, and where does the revenue come from?",
-    2: "Is the customer experience keeping up with the growth?",
-    3: "What should we do before Black Friday 2018?",
+    1: "เราโตจริงไหม และรายได้มาจากไหน?",
+    2: "ประสบการณ์ลูกค้าตามการเติบโตทันไหม?",
+    3: "ก่อน Black Friday 2018 เราควรทำอะไร?",
 }
 
 
@@ -28,13 +28,13 @@ def annotate_crises(fig, y_col: str = "late", yref: str = "y", scale: float = 10
     for _, row in crisis_months().iterrows():
         fig.add_annotation(
             x=row["month"], y=row[y_col] * scale, yref=yref,
-            text=f"<b>{row['month']:%b %Y}</b><br>{row[y_col]:.0%} late",
+            text=f"<b>{row['month']:%b %Y}</b><br>ส่งช้า {row[y_col]:.0%}",
             showarrow=True, arrowhead=0, ax=0, ay=48 if below else -36, font=dict(size=12),
             bgcolor="rgba(255,255,255,0.9)",
         )
 
 
-def highlight_crises(fig, label: str = "Late rate & bad reviews spike together") -> None:
+def highlight_crises(fig, label: str = "ส่งช้าและรีวิวแย่พุ่งพร้อมกัน") -> None:
     """Shade each run of consecutive crisis months so the eye lands on where both lines jump."""
     months = list(crisis_months()["month"])
     runs, start = [], None

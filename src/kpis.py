@@ -52,6 +52,20 @@ KPIS = [
         "Lost sales and wasted acquisition spend."),
 ]
 KPI_BY_KEY = {k.key: k for k in KPIS}
+
+# Thai wording for the KPI cards in the main report (the Appendix keeps the English definitions above).
+KPI_TH = {
+    "gmv": ("GMV", "ขนาดของธุรกิจ", "ยอดที่ลูกค้าจ่ายทั้งหมด (รวมค่าส่ง) ไม่รวม order ที่ยกเลิก"),
+    "orders": ("จำนวน order", "ปริมาณความต้องการ", "จำนวน order ที่ไม่ถูกยกเลิกในช่วงเวลานี้"),
+    "aov": ("มูลค่าเฉลี่ยต่อ order", "ลูกค้าจ่ายต่อครั้งเท่าไร", "GMV ÷ จำนวน order"),
+    "customers": ("ลูกค้าที่ซื้อ", "ฐานลูกค้าของเรา", "จำนวนลูกค้า (นับเป็นคน) ที่มี order ในช่วงเวลานี้"),
+    "returning": ("order จากลูกค้าเก่า", "ความภักดี ยิ่งต่ำยิ่งต้องพึ่งลูกค้าใหม่", "สัดส่วน order จากลูกค้าที่เคยซื้อมาก่อน"),
+    "late": ("อัตราส่งช้า", "ส่งตามวันที่สัญญาได้แค่ไหน ตัวการหลักของรีวิวแย่", "สัดส่วน order ที่ส่งถึงหลังวันที่แจ้งลูกค้า"),
+    "review": ("คะแนนรีวิวเฉลี่ย", "ความพึงพอใจโดยรวม", "คะแนนเฉลี่ย 1–5 ดาวของ order ที่มีรีวิว"),
+    "negative": ("รีวิวแย่", "ลูกค้าไม่พอใจ มักไม่กลับมาซื้อ", f"สัดส่วนรีวิว 1–{LOW_SCORE} ดาว"),
+    "delivery_days": ("เวลาจัดส่งเฉลี่ย", "ลูกค้ารอของนานแค่ไหน", "จำนวนวันจากสั่งซื้อถึงได้รับของ"),
+    "cancel": ("อัตรายกเลิก", "ยอดขายที่เสียไป", "order ที่ถูกยกเลิก ÷ order ทั้งหมด"),
+}
 GROWTH_KPIS = {"gmv", "orders", "customers"}  # target is on YoY change, not the level
 FLAT_KPIS = {"aov"}  # target is "no decline" YoY
 
@@ -139,14 +153,14 @@ def fmt_value(k: Kpi, v: float) -> str:
         return f"{v:.1%}"
     if k.fmt == "score":
         return f"{v:.2f} / 5"
-    return f"{v:.1f} days"
+    return f"{v:.1f} วัน"
 
 
 def fmt_target(k: Kpi) -> str:
     if k.key in GROWTH_KPIS:
         return f"≥ {k.target:+.0%} YoY"
     if k.key in FLAT_KPIS:
-        return "no YoY decline"
+        return "ไม่ลดลง YoY"
     sign = "≥" if k.higher_is_better else "≤"
     return f"{sign} {fmt_value(k, k.target)}"
 
@@ -158,7 +172,7 @@ def fmt_delta(k: Kpi, cur: float, prior: float) -> str:
     if k.fmt == "score":
         return f"{cur - prior:+.2f} YoY"
     if k.fmt == "days":
-        return f"{cur - prior:+.1f} days YoY"
+        return f"{cur - prior:+.1f} วัน YoY"
     return f"{cur / prior - 1:+.0%} YoY"
 
 
@@ -170,14 +184,15 @@ def render_cards(keys: list, per_row: int = 4) -> None:
     for i in range(0, len(keys), per_row):
         for col, key in zip(st.columns(per_row), keys[i:i + per_row]):
             k, row = KPI_BY_KEY[key], card.loc[key]
+            label, meaning, definition = KPI_TH[key]
             with col:
                 kpi_card(
-                    label=k.label,
+                    label=label,
                     value=fmt_value(k, row["current"]),
                     delta=fmt_delta(k, row["current"], row["prior"]),
                     higher_is_better=k.higher_is_better,
                     status=row["status"],
                     target=fmt_target(k),
-                    meaning=k.meaning.split(" Target")[0],
-                    help=f"{k.definition} Last year: {fmt_value(k, row['prior'])}.",
+                    meaning=meaning,
+                    help=f"{definition} · ปีก่อน: {fmt_value(k, row['prior'])}",
                 )
