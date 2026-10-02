@@ -1,13 +1,12 @@
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 
-from src.currency import fmt_money_short, get_currency
+from src.currency import get_currency
 from src.kpis import render_cards, reporting_periods, scorecard
 from src.metrics import category_pareto, monthly_sales, n_for_share, peak_day, seller_pareto, yoy_growth
 from src.story import QUESTIONS, question_label
-from src.theme import ACCENT_RED, BRAND_COLOR, INK, NEUTRAL_GREY, key_findings, section_header, style_fig, takeaway
+from src.theme import BRAND_COLOR, NEUTRAL_GREY, key_findings, section_header, style_fig, takeaway
 
 TOP_CATEGORIES = 10
 
@@ -31,28 +30,10 @@ def _trend_fig(m: pd.DataFrame, yoy: dict, peak_d: pd.Series):
     return style_fig(fig), this_year
 
 
-def _drivers_fig(card: pd.DataFrame, periods: dict):
-    """GMV bridge: last year -> + more orders -> + higher order value -> this year."""
-    symbol, rate = get_currency()
-    prior_gmv, cur_gmv = card.loc["gmv", "prior"], card.loc["gmv", "current"]
+def _volume_share(card: pd.DataFrame) -> float:
+    """Share of the GMV change explained by more orders (at last year's order value)."""
     volume = (card.loc["orders", "current"] - card.loc["orders", "prior"]) * card.loc["aov", "prior"]
-    value = cur_gmv - prior_gmv - volume
-    steps = [prior_gmv, volume, value, cur_gmv]
-    fig = go.Figure(go.Waterfall(
-        x=[periods["prior_label"], "More orders", "Higher order value", periods["label"]],
-        y=[v / rate for v in steps],
-        measure=["absolute", "relative", "relative", "total"],
-        text=[fmt_money_short(prior_gmv), f"+{fmt_money_short(volume)}", f"{'+' if value >= 0 else ''}{fmt_money_short(value)}",
-              fmt_money_short(cur_gmv)],
-        textposition="outside",
-        connector=dict(line=dict(color=NEUTRAL_GREY, dash="dot")),
-        increasing=dict(marker=dict(color=BRAND_COLOR)),
-        decreasing=dict(marker=dict(color=ACCENT_RED)),
-        totals=dict(marker=dict(color=INK)),
-    ))
-    fig.update_layout(title="GMV bridge: what drove the growth", yaxis_title=f"GMV ({symbol})",
-                      yaxis_range=[0, cur_gmv / rate * 1.2], showlegend=False)
-    return style_fig(fig), volume / (cur_gmv - prior_gmv)
+    return volume / (card.loc["gmv", "current"] - card.loc["gmv", "prior"])
 
 
 def _category_fig(cats: pd.DataFrame):
@@ -64,19 +45,6 @@ def _category_fig(cats: pd.DataFrame):
     fig.update_traces(marker_color=BRAND_COLOR, textposition="outside")
     fig.update_layout(xaxis_range=[0, top["share"].max() * 100 * 1.25])
     return style_fig(fig)
-
-
-def _seller_fig(sellers: pd.DataFrame):
-    deciles = sellers.assign(decile=(sellers["rank"] - 1) * 10 // len(sellers) + 1)
-    by_decile = deciles.groupby("decile", as_index=False)["share"].sum()
-    by_decile["pct"] = by_decile["share"] * 100
-    fig = px.bar(by_decile, x="decile", y="pct", title="Share of revenue by seller group",
-                 labels={"decile": "Seller group (1 = top 10% of sellers)", "pct": "Share of revenue (%)"},
-                 text=by_decile["pct"].map(lambda v: f"{v:.0f}%"))
-    fig.update_traces(marker_color=[BRAND_COLOR] + [NEUTRAL_GREY] * 9, textposition="outside")
-    fig.update_xaxes(dtick=1)
-    fig.update_layout(yaxis_range=[0, by_decile["pct"].max() * 1.15])
-    return style_fig(fig), by_decile
 
 
 def render() -> None:
@@ -91,8 +59,12 @@ def render() -> None:
     sellers = seller_pareto()
     n80 = n_for_share(cats)
 
+    volume_share = _volume_share(card)
+    top_sellers_share = sellers.head(len(sellers) // 10)["share"].sum()
+
     st.subheader("1. Growth at a Glance")
     render_cards(["gmv", "orders", "aov", "customers"])
+    takeaway(f"{volume_share:.0%} of GMV growth came from more orders - order value is flat.", label="Insight")
 
     st.subheader("2. Monthly Order Trend")
     fig, this_year = _trend_fig(m, yoy, peak_d)
@@ -112,19 +84,15 @@ def render() -> None:
             },
         )
 
-    st.subheader("3. Growth Drivers")
-    fig, volume_share = _drivers_fig(card, periods)
-    st.plotly_chart(fig)
-    takeaway(f"{volume_share:.0%} of GMV growth came from more orders, not bigger baskets.", label="Insight")
-
-    st.subheader("4. Revenue by Category")
-    st.plotly_chart(_category_fig(cats))
-    takeaway(f"{n80} of {len(cats)} categories generate 80% of revenue.", label="Insight")
-
-    st.subheader("5. Revenue by Seller")
-    fig, by_decile = _seller_fig(sellers)
-    st.plotly_chart(fig)
-    takeaway(f"The top 10% of sellers generate {by_decile.iloc[0]['share']:.0%} of revenue.", label="Insight")
+    st.subheader("3. Revenue Concentration")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.plotly_chart(_category_fig(cats))
+    with col2:
+        with st.container(border=True):
+            st.metric("Categories making 80% of revenue", f"{n80} of {len(cats)}")
+        with st.container(border=True):
+            st.metric("Revenue from top 10% of sellers", f"{top_sellers_share:.0%}")
 
     key_findings(
         [
