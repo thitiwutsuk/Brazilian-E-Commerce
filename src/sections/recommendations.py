@@ -72,8 +72,8 @@ def recommendations() -> list:
             title="Fix delivery to the worst-served states",
             evidence=(f"{', '.join(worst.index)} run at {worst['late'].min():.0%}–{worst['late'].max():.0%} late vs. "
                       f"{national:.1%} nationally in {periods['label']}; most sellers ship from the south-east."),
-            action="Review carrier mix and estimated-date rules for these states; recruit sellers or a regional "
-                   "hub closer to the north-east.",
+            action=(f"Review carrier mix and promised-date rules for {', '.join(worst.index)} - the states with the "
+                    "highest late rates; recruit sellers or a regional hub closer to the north-east."),
             impact=(f"Bringing these 5 states to the national rate avoids ~{avoided_regional:,.0f} late orders and "
                     f"~{avoided_regional * neg_uplift:,.0f} negative reviews per year."),
             kpi="Late delivery rate by state",
@@ -84,8 +84,8 @@ def recommendations() -> list:
             evidence=(f"Only {overall_repeat:.0%} of first-time buyers order again within {REPEAT_WINDOW_DAYS} days - "
                       "even after an on-time, 5-star experience. Repeat is highest in "
                       f"{', '.join(f'{c} ({v:.0%})' for c, v in best['repeat'].items())}."),
-            action="Test a second-order voucher with customers from these categories against a control group "
-                   "before any wider rollout.",
+            action=(f"Test a second-order voucher with first-time buyers in {', '.join(best.index)} - the categories "
+                    "where customers already return most - against a control group before any wider rollout."),
             impact=(f"Shows whether retention can be moved at all; doubling repeat in these categories would add "
                     f"~{extra_returning:,.0f} returning customers per year."),
             kpi="Orders from returning customers",
@@ -105,16 +105,12 @@ def _style_boxes() -> None:
 def render() -> None:
     section_header(f"{question_label(3)} · {QUESTIONS[3]}")
     _style_boxes()
-    for i, r in enumerate(recommendations(), 1):
+    for r in recommendations():
         accent = PRIORITY_STYLE[r["priority"]][1]
         with st.container(key=f"rec-{r['priority'].lower()}"):
             st.markdown(
-                f'<span style="color:{accent};font-weight:700;letter-spacing:.04em">{r["priority"].upper()} PRIORITY</span>'
-                f' · Owner: {r["owner"]} · KPI: {r["kpi"]}',
+                f'<span style="color:{accent};font-weight:700;letter-spacing:.04em">{r["priority"].upper()} PRIORITY</span>',
                 unsafe_allow_html=True,
             )
-            st.markdown(f"#### {i}. {r['title']}")
-            col1, col2, col3 = st.columns(3)
-            col1.markdown(f"**Why**\n\n{r['evidence']}".replace("$", "\\$"))
-            col2.markdown(f"**Action**\n\n{r['action']}".replace("$", "\\$"))
-            col3.markdown(f"**Estimated impact**\n\n{r['impact']}".replace("$", "\\$"))
+            st.markdown(f"#### {r['title']}")
+            st.markdown(r["action"].replace("$", "\\$"))

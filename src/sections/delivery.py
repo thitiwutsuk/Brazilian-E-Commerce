@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.kpis import KPI_BY_KEY, monthly_kpis, render_cards, scorecard
-from src.story import QUESTIONS, annotate_crises, crisis_months, question_label
+from src.story import QUESTIONS, annotate_crises, crisis_months, highlight_crises, question_label
 from src.metrics import LOW_SCORE, delivered_orders, late_vs_on_time
 from src.theme import ACCENT_RED, BRAND_COLOR, INK, key_findings, section_header, style_fig, takeaway
 
@@ -33,6 +33,7 @@ def _trend_fig():
                     mode="lines+markers", line=dict(color=INK, width=2))
     fig.add_hline(y=KPI_BY_KEY["late"].target * 100, line_dash="dot", line_color=ACCENT_RED,
                   annotation_text=f"late-rate target {KPI_BY_KEY['late'].target:.0%}", annotation_position="top left")
+    highlight_crises(fig)
     annotate_crises(fig, below=True)
     fig.update_layout(title="Late deliveries vs. negative reviews, by month", yaxis_title="%",
                       legend=dict(orientation="h", y=1.08, x=1, xanchor="right"), hovermode="x unified")
