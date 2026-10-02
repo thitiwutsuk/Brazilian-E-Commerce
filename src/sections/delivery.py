@@ -9,12 +9,9 @@ from src.metrics import LOW_SCORE, delivered_orders, late_vs_on_time
 from src.theme import ACCENT_RED, BRAND_COLOR, INK, key_findings, section_header, style_fig, takeaway
 
 DELAY_BUCKETS = [
-    (-999, -15, "15+ days early"),
-    (-14, -8, "8–14 early"),
-    (-7, -1, "1–7 early"),
-    (0, 0, "On the day"),
-    (1, 3, "1–3 late"),
-    (4, 7, "4–7 late"),
+    (-999, 0, "On time or early"),
+    (1, 3, "1–3 days late"),
+    (4, 7, "4–7 days late"),
     (8, 999, "8+ days late"),
 ]
 
@@ -44,8 +41,8 @@ def _trend_fig():
 
 def _impact_fig(by_bucket: pd.DataFrame):
     is_late = by_bucket["bucket"].astype(str).str.contains("late")
-    fig = px.bar(by_bucket, x="bucket", y="negative", title=f"Share of 1–{LOW_SCORE} star reviews by delivery timing",
-                 labels={"bucket": "", "negative": "Negative reviews (%)"},
+    fig = px.bar(by_bucket, x="bucket", y="negative", title="The later the delivery, the worse the review",
+                 labels={"bucket": "", "negative": f"% of orders rated 1–{LOW_SCORE} stars"},
                  text=by_bucket["negative"].map(lambda v: f"{v:.0f}%"), hover_data={"orders": ":,"})
     fig.update_traces(marker_color=[ACCENT_RED if x else BRAND_COLOR for x in is_late], textposition="outside")
     fig.update_yaxes(range=[0, by_bucket["negative"].max() * 1.2])
