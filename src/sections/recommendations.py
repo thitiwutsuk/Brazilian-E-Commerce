@@ -43,6 +43,10 @@ def recommendations() -> list:
     states = delivered.groupby("customer_state").agg(orders=("order_id", "size"), late=("is_late", "mean"))
     worst = states[states["orders"] >= MIN_STATE_ORDERS].nlargest(5, "late")
     avoided_regional = ((worst["late"] - national) * worst["orders"]).sum() * 12 / months_in_period
+    # Outside the peak months, to show the regional gap is structural rather than seasonal.
+    off_peak = delivered[~delivered["month"].isin(crisis.index.union([peak_month]))]
+    off_peak_states = off_peak[off_peak["customer_state"].isin(worst.index)]["is_late"].mean()
+    off_peak_national = off_peak["is_late"].mean()
 
     # 3. Retention: who actually comes back, by first-purchase category.
     by_cat, overall_repeat = repeat_by_category()
@@ -56,12 +60,13 @@ def recommendations() -> list:
     return [
         dict(
             priority="High", owner="Logistics & Operations",
-            title=f"Prepare delivery capacity for Black Friday {periods['as_of'].year}",
+            title=f"Add peak-season capacity for Black Friday {periods['as_of'].year}",
             evidence=(f"Late rate jumped to {peak['late']:.0%} in {peak_month:%b %Y} (Black Friday) and went above "
                       f"{2 * late_target:.0%} again in {', '.join(f'{m:%b %Y}' for m in crisis.index)}. Those months drove "
                       f"the YoY rise in late deliveries ({card.loc['late', 'prior']:.1%} → {card.loc['late', 'current']:.1%})."),
-            action="Agree carrier capacity and seller dispatch SLAs for Nov–Dec now; add buffer days to delivery "
-                   "promises during the peak; monitor late rate weekly from 1 Nov.",
+            action=(f"Short-term, all regions, Nov–Dec only: book extra carrier and seller-dispatch capacity for "
+                    f"~{peak_2018:,.0f} orders in the peak month, add buffer days to promised dates while volume is "
+                    "high, and track the late rate weekly from 1 Nov."),
             impact=(f"At ~{peak_2018:,.0f} orders expected in the peak month, holding the late rate at "
                     f"{late_target:.0%} instead of {peak['late']:.0%} avoids ~{avoided_peak:,.0f} late orders and "
                     f"~{avoided_peak * neg_uplift:,.0f} negative reviews."),
@@ -69,11 +74,12 @@ def recommendations() -> list:
         ),
         dict(
             priority="Medium", owner="Logistics & Operations",
-            title="Fix delivery to the worst-served states",
+            title="Fix year-round delivery to the worst-served states",
             evidence=(f"{', '.join(worst.index)} run at {worst['late'].min():.0%}–{worst['late'].max():.0%} late vs. "
                       f"{national:.1%} nationally in {periods['label']}; most sellers ship from the south-east."),
-            action=(f"Review carrier mix and promised-date rules for {', '.join(worst.index)} - the states with the "
-                    "highest late rates; recruit sellers or a regional hub closer to the north-east."),
+            action=(f"Long-term, structural: {', '.join(worst.index)} run {off_peak_states:.0%} late even outside peak "
+                    f"months (vs. {off_peak_national:.0%} nationally) because most sellers ship from the south-east. "
+                    "Bring supply closer: open a regional fulfilment hub or recruit local sellers in these states."),
             impact=(f"Bringing these 5 states to the national rate avoids ~{avoided_regional:,.0f} late orders and "
                     f"~{avoided_regional * neg_uplift:,.0f} negative reviews per year."),
             kpi="Late delivery rate by state",
