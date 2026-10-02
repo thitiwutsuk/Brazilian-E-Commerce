@@ -87,6 +87,6 @@ def kpi_card(label, value, delta, higher_is_better, status, target, meaning, hel
         st.caption(meaning)
 
 
-def takeaway(text: str) -> None:
+def takeaway(text: str, label: str = "What this means") -> None:
     """One-line "what this means" under a chart, in plain business language."""
-    st.markdown(f"**What this means:** {text.replace('$', chr(92) + '$')}")
+    st.markdown(f"**{label}:** {text.replace('$', chr(92) + '$')}")
