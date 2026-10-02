@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from src.data_loader import load_item_level, load_order_level
-from src.kpis import LOW_SCORE
+from src.kpis import LOW_SCORE, reporting_periods
 from src.quality import analysis_window
 
 
@@ -67,16 +67,21 @@ def pareto(df: pd.DataFrame, key: str, value: str = "revenue") -> pd.DataFrame:
     return out
 
 
+def _current_items() -> pd.DataFrame:
+    """Non-canceled items in the current reporting period."""
+    items = load_item_level()
+    start, end = reporting_periods()["current"]
+    return items[items["month"].between(start, end) & (items["order_status"] != "canceled")]
+
+
 @st.cache_data
 def category_pareto() -> pd.DataFrame:
-    items = load_item_level()
-    return pareto(items[items["order_status"] != "canceled"], "product_category_name_english")
+    return pareto(_current_items(), "product_category_name_english")
 
 
 @st.cache_data
 def seller_pareto() -> pd.DataFrame:
-    items = load_item_level()
-    return pareto(items[items["order_status"] != "canceled"], "seller_id")
+    return pareto(_current_items(), "seller_id")
 
 
 def n_for_share(p: pd.DataFrame, share: float = 0.8) -> int:
