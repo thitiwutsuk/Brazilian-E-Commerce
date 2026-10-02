@@ -1,15 +1,19 @@
 import pandas as pd
 import streamlit as st
 
-from src.currency import fmt_money_short
 from src.data_loader import load_item_level
-from src.kpis import KPI_BY_KEY, fmt_target, monthly_kpis, period_slice, reporting_periods, scorecard
-from src.metrics import late_vs_on_time
+from src.kpis import KPI_BY_KEY, monthly_kpis, period_slice, reporting_periods, scorecard
+from src.metrics import REPEAT_WINDOW_DAYS, late_vs_on_time, repeat_by_category
 from src.story import QUESTIONS, question_label
 from src.theme import section_header
 
 MIN_STATE_ORDERS = 300
-PRIORITY_COLOR = {"High": "#B42318", "Medium": "#8A6100", "Low": "#475467"}
+# (background, accent) per priority - red = act now, amber = next, blue = test and learn.
+PRIORITY_STYLE = {
+    "High": ("#FDECEC", "#B42318"),
+    "Medium": ("#FFF6DD", "#B07A00"),
+    "Low": ("#EAF2FB", "#1F5A99"),
+}
 
 
 @st.cache_data
@@ -40,17 +44,14 @@ def recommendations() -> list:
     worst = states[states["orders"] >= MIN_STATE_ORDERS].nlargest(5, "late")
     avoided_regional = ((worst["late"] - national) * worst["orders"]).sum() * 12 / months_in_period
 
-    # 3. Retention: +1 pp of orders from returning customers.
-    valid = cur[cur["order_status"] != "canceled"]
-    annual_orders = len(valid) * 12 / months_in_period
-    retention_gmv = annual_orders * 0.01 * valid["payment_value"].mean()
-
-    # 4. Seller concentration.
-    items = load_item_level()
-    items = items[items["month"].between(*periods["current"]) & (items["order_status"] != "canceled")]
-    sellers = items.groupby("seller_id")["revenue"].sum().sort_values(ascending=False)
-    top_n = max(1, len(sellers) // 100)
-    top_share = sellers.head(top_n).sum() / sellers.sum()
+    # 3. Retention: who actually comes back, by first-purchase category.
+    by_cat, overall_repeat = repeat_by_category()
+    best = by_cat.head(3)
+    category = load_item_level().groupby("order_id")["product_category_name_english"].first()
+    new_buyers = cur[(cur["order_seq"] == 1) & (cur["order_status"] != "canceled")]
+    new_buyers = new_buyers["order_id"].map(category).value_counts().reindex(best.index).fillna(0)
+    # Doubling the repeat rate adds as many returning customers as return today.
+    extra_returning = (new_buyers * best["repeat"]).sum() * 12 / months_in_period
 
     return [
         dict(
@@ -67,7 +68,7 @@ def recommendations() -> list:
             kpi="Late delivery rate, negative reviews",
         ),
         dict(
-            priority="High", owner="Logistics & Operations",
+            priority="Medium", owner="Logistics & Operations",
             title="Fix delivery to the worst-served states",
             evidence=(f"{', '.join(worst.index)} run at {worst['late'].min():.0%}–{worst['late'].max():.0%} late vs. "
                       f"{national:.1%} nationally in {periods['label']}; most sellers ship from the south-east."),
@@ -78,45 +79,37 @@ def recommendations() -> list:
             kpi="Late delivery rate by state",
         ),
         dict(
-            priority="Medium", owner="CRM & Marketing",
-            title="Launch a second-purchase program",
-            evidence=(f"Only {card.loc['returning', 'current']:.1%} of orders come from returning customers "
-                      f"(target {fmt_target(KPI_BY_KEY['returning'])}); growth relies on acquiring new buyers."),
-            action="Post-delivery email/voucher for a second order within 60 days, targeted at customers who left "
-                   "4-5 star reviews; A/B test before full rollout.",
-            impact=f"Every +1 pp of orders from returning customers ≈ +{annual_orders * 0.01:,.0f} orders and "
-                   f"+{fmt_money_short(retention_gmv)} GMV per year.",
+            priority="Low", owner="CRM & Marketing",
+            title="Pilot a second-purchase program in repeat-friendly categories",
+            evidence=(f"Only {overall_repeat:.0%} of first-time buyers order again within {REPEAT_WINDOW_DAYS} days - "
+                      "even after an on-time, 5-star experience. Repeat is highest in "
+                      f"{', '.join(f'{c} ({v:.0%})' for c, v in best['repeat'].items())}."),
+            action="Test a second-order voucher with customers from these categories against a control group "
+                   "before any wider rollout.",
+            impact=(f"Shows whether retention can be moved at all; doubling repeat in these categories would add "
+                    f"~{extra_returning:,.0f} returning customers per year."),
             kpi="Orders from returning customers",
-        ),
-        dict(
-            priority="Medium", owner="Seller Success",
-            title="Protect the top sellers",
-            evidence=f"The top 1% of sellers ({top_n} of {len(sellers):,}) generate {top_share:.0%} of item revenue "
-                     f"in {periods['label']}.",
-            action="Assign account managers to the top sellers; track their late rate and review score monthly "
-                   "and act before they churn or degrade.",
-            impact=f"Protects ~{fmt_money_short(sellers.head(top_n).sum() * 12 / months_in_period)} of annual item "
-                   "revenue concentrated in a few accounts.",
-            kpi="GMV share and late rate of top sellers",
-        ),
-        dict(
-            priority="Low", owner="Analytics",
-            title="Adopt this scorecard as the monthly business review",
-            evidence="Targets in this report are proposed by the analyst - there are no official ones yet.",
-            action="Confirm targets with each KPI owner and review the scorecard monthly; add weekly late-rate "
-                   "alerts during peak season.",
-            impact="Problems like the Feb–Mar 2018 delivery crisis get caught within a week instead of a quarter.",
-            kpi="All scorecard KPIs",
         ),
     ]
 
 
+def _style_boxes() -> None:
+    css = "".join(
+        f".st-key-rec-{p.lower()} {{background:{bg}; border-left:6px solid {accent}; border-radius:8px; "
+        f"padding:16px 20px;}}"
+        for p, (bg, accent) in PRIORITY_STYLE.items()
+    )
+    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+
+
 def render() -> None:
-    section_header(f"{question_label(3)} · {QUESTIONS[3]} And what is each action worth?")
+    section_header(f"{question_label(3)} · {QUESTIONS[3]}")
+    _style_boxes()
     for i, r in enumerate(recommendations(), 1):
-        with st.container(border=True):
+        accent = PRIORITY_STYLE[r["priority"]][1]
+        with st.container(key=f"rec-{r['priority'].lower()}"):
             st.markdown(
-                f'<span style="color:{PRIORITY_COLOR[r["priority"]]};font-weight:700">{r["priority"]} priority</span>'
+                f'<span style="color:{accent};font-weight:700;letter-spacing:.04em">{r["priority"].upper()} PRIORITY</span>'
                 f' · Owner: {r["owner"]} · KPI: {r["kpi"]}',
                 unsafe_allow_html=True,
             )

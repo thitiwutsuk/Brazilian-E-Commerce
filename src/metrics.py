@@ -92,3 +92,25 @@ def n_for_share(p: pd.DataFrame, share: float = 0.8) -> int:
 @st.cache_data
 def orders_per_customer() -> pd.Series:
     return load_order_level().groupby("customer_unique_id")["order_id"].nunique()
+
+
+REPEAT_WINDOW_DAYS = 180
+
+
+@st.cache_data
+def repeat_by_category(min_customers: int = 1000) -> tuple:
+    """Share of first-time customers who order again within REPEAT_WINDOW_DAYS, by the category of their
+    first order. Only first orders old enough to have a full window of follow-up are counted."""
+    orders = load_order_level()
+    orders = orders[orders["order_status"] != "canceled"].sort_values("order_purchase_timestamp")
+    ts = orders.groupby("customer_unique_id")["order_purchase_timestamp"]
+    first = orders.assign(next_order=ts.shift(-1).where(orders["order_seq"] == 1))
+    first = first[first["order_seq"] == 1]
+    cutoff = orders["order_purchase_timestamp"].max() - pd.Timedelta(days=REPEAT_WINDOW_DAYS)
+    first = first[first["order_purchase_timestamp"] <= cutoff]
+    first["repeat"] = (first["next_order"] - first["order_purchase_timestamp"]).dt.days.le(REPEAT_WINDOW_DAYS)
+    category = load_item_level().groupby("order_id")["product_category_name_english"].first()
+    first["category"] = first["order_id"].map(category)
+    out = first.groupby("category").agg(customers=("repeat", "size"), repeat=("repeat", "mean"))
+    out = out[out["customers"] >= min_customers].sort_values("repeat", ascending=False)
+    return out, first["repeat"].mean()

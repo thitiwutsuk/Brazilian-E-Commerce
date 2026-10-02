@@ -17,8 +17,8 @@ SECTIONS = [
     ("Executive Summary", summary),
     ("Sales & Growth", sales),
     ("Customer Experience", delivery),
-    ("Customers & Markets", customers),
     ("Recommendations", recommendations),
+    ("Customers & Markets", customers),
     ("Appendix", appendix),
 ]
 
